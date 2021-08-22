@@ -1,0 +1,4 @@
+{
+  "include": ["src", "scripts", ".eslintrc.js", "@types"],
+  "module": "CommonJS"
+}

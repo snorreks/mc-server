@@ -1,0 +1,48 @@
+{
+  "editor.codeActionsOnSave": {
+    "source.fixAll": true
+  },
+  "editor.defaultFormatter": "esbenp.prettier-vscode",
+  "cSpell.ignorePaths": [
+    "**/package-lock.json",
+    "**/node_modules/**",
+    "**/vscode-extension/**",
+    "**/.git/objects/**",
+    ".vscode",
+    ".vscode-insiders",
+    "**/static/**",
+    "assets/locales/da.json",
+    "assets/locales/no.json"
+  ],
+  "cSpell.words": [
+    "ALGOLIA",
+    "Boie",
+    "CYQGMBW",
+    "EGUOKAMMHV",
+    "IGXJR",
+    "Ispc",
+    "Onjnu",
+    "Parens",
+    "SGEK",
+    "algoliasearch",
+    "appspot",
+    "commitlint",
+    "devtool",
+    "entrypoint",
+    "etag",
+    "firebaseapp",
+    "firestore",
+    "iarc",
+    "instantsearch",
+    "itunes",
+    "kvhr",
+    "linkedin",
+    "nuxt",
+    "nuxtjs",
+    "signup",
+    "stylelint",
+    "vuetify",
+    "vuex"
+  ],
+  "auto-close-tag.disableOnLanguage": ["typescript"]
+}
