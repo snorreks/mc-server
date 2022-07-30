@@ -13,7 +13,7 @@ const compute = google.compute('v1');
 const instanceParams = {
   zone: 'europe-west1-b',
   instance: 'mc-server',
-  project: 'mc-ag-server',
+  project: 'meingraf421',
 };
 
 /**

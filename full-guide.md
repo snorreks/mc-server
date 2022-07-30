@@ -68,10 +68,13 @@ sudo apt install adoptopenjdk-8-hotspot
 ```
 
 - else
+  https://www.linuxcapable.com/how-to-install-java-17-lts-jdk-17-on-ubuntu-20-04/
 
 ```script
-sudo apt-get update
-sudo apt-get install -y openjdk-16-jre-headless
+sudo su
+apt-get install software-properties-common
+apt-get update
+apt-get install -y openjdk-16-jre-headless
 #sudo apt-get install -y default-jre-headless
 ```
 
@@ -197,6 +200,18 @@ rm -r {folderName}
 gsutil cp -r . gs://{projectId}-mc-backup/minecraft
 ```
 
+
+- Copy minecraft worlds from vm to storage
+
+```script
+gsutil -m cp -r world gs://meingraf421-mc-backup/backup/world
+gsutil -m cp -r world_nether gs://meingraf421-mc-backup/backup/world_nether
+gsutil -m cp -r world_the_end gs://meingraf421-mc-backup/backup/world_the_end
+
+```
+
+gsutil -m cp -r gs://meingraf421-mc-backup/backup .
+
 - Copy saved minecraft
 
 1. Put your minecraft world in {projectId}-md-backup: https://console.cloud.google.com/storage
@@ -261,3 +276,15 @@ https://www.spigotmc.org/resources/discordsrv.18494/
 
 -dynmap
 http://www.dynmap.us/builds/dynmap/?C=M;O=D
+
+- bettersleeping
+
+- minablespawners
+
+- luckperms
+
+- sickle
+
+- imageonmap
+
+- chestsort

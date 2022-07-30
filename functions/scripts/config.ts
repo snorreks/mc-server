@@ -2,7 +2,7 @@ import functions from 'firebase-functions-test';
 
 const serviceAccountPath = '../service-account.json';
 
-const projectId = 'mc-ag-server';
+const projectId = 'meingraf421';
 
 const fun = functions(
   {

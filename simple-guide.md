@@ -1,7 +1,7 @@
 ctr+d and replace the following:
 
-{projectId}
-{googleName}
+meingraf421
+meingraf420
 
 # Setup
 
@@ -15,7 +15,7 @@ ctr+d and replace the following:
 3. Go to GCP and setup free trial, select the firebase project and create a VM https://console.cloud.google.com/compute/instances
 
    1. Name: mc-server
-   2. Zone: europa-west1-b
+   2. Zone: europa-west1-bvm
    3. Machine type: e2-standard-4 (or higher?)
    4. Boot disk > Change > Boot disk type: SSD
 
@@ -85,7 +85,7 @@ sudo apt-get install -y openjdk-16-jre-headless
 cd /home/minecraft
 sudo su
 apt-get install -y screen
-gsutil mb -b on -l europe-west1 gs://{projectId}-mc-backup
+gsutil mb -b on -l europe-west1 gs://meingraf421-mc-backup
 ```
 
 6.  Download Minecraft server (rename jar file to server.jar):
@@ -95,7 +95,7 @@ gsutil mb -b on -l europe-west1 gs://{projectId}-mc-backup
            1. Download server.jar: https://papermc.io/downloads
 
            ```script
-           mv ../{googleName}/server.jar .
+           mv ../meingraf420/server.jar .
            java -Xms1G -Xmx7G -jar server.jar nogui
            nano eula.txt
            ```
@@ -104,18 +104,18 @@ gsutil mb -b on -l europe-west1 gs://{projectId}-mc-backup
 
     - Modpack:
 
-      1. Download modpack and put it in "minecraft" folder in {projectId}-mc-backup: https://console.cloud.google.com/storage
+      1. Download modpack and put it in "minecraft" folder in meingraf421-mc-backup: https://console.cloud.google.com/storage
 
       ```script
-      gsutil cp -r gs://{projectId}-mc-backup/minecraft/* .
+      gsutil cp -r gs://meingraf421-mc-backup/minecraft/* .
       ```
 
 7.  (Optional):
     (upload server.properties and server-icon.png)
 
 ```script
-mv ../{googleName}/server.properties .
-mv ../{googleName}/server-icon.png .
+mv ../meingraf420/server.properties .
+mv ../meingraf420/server-icon.png .
 ```
 
 9.  Setup backup script
@@ -128,7 +128,7 @@ nano /home/minecraft/backup.sh
 
 ```script
 #!/bin/bash
-base=gs://{projectId}-mc-backup/$(date "+%w")
+base=gs://meingraf421-mc-backup/$(date "+%w")
 screen -r mcs -X stuff '/save-all\n/save-off\n'
 /usr/bin/gsutil rm ${base}/**
 /usr/bin/gsutil cp -R ${BASH_SOURCE%/*}/world ${base}/world
@@ -141,29 +141,32 @@ screen -r mcs -X stuff '/save-on\n'
 chmod 755 /home/minecraft/backup.sh
 ```
 
-8. Setup start and end script
+8.  Setup start and end script
 
-   1. Go to the vm and click edit
-   2. Custom metadata:
+    1.  Go to the vm and click edit
+    2.  Custom metadata:
 
-      - startup-script:
+              - startup-script:
 
-      ```script
-      #!/bin/bash
-      mount /dev/disk/by-id/google-minecraft-disk /home/minecraft
-      (crontab -l ; echo "0 */4 * * * /home/minecraft/backup.sh")| crontab -
-      cd /home/minecraft
-      screen -d -m -S mcs java -Xms14G -Xmx14G -XX:+UseG1GC -XX:+ParallelRefProcEnabled -XX:MaxGCPauseMillis=200 -XX:+UnlockExperimentalVMOptions -XX:+DisableExplicitGC -XX:+AlwaysPreTouch -XX:G1NewSizePercent=40 -XX:G1MaxNewSizePercent=50 -XX:G1HeapRegionSize=16M -XX:G1ReservePercent=15 -XX:G1HeapWastePercent=5 -XX:G1MixedGCCountTarget=4 -XX:InitiatingHeapOccupancyPercent=20 -XX:G1MixedGCLiveThresholdPercent=90 -XX:G1RSetUpdatingPauseTimePercent=5 -XX:SurvivorRatio=32 -XX:+PerfDisableSharedMem -XX:MaxTenuringThreshold=1 -Dusing.aikars.flags=https://mcflags.emc.gs -Daikars.new.flags=true -jar server.jar nogui
-      ```
+              ```script
+              #!/bin/bash
+              mount /dev/disk/by-id/google-minecraft-disk /home/minecraft
+              (crontab -l ; echo "0 */4 * * * /home/minecraft/backup.sh")| crontab -
+              cd /home/minecraft
+              screen -d -m -S mcs java -Xms14G -Xmx14G -XX:+UseG1GC -XX:+ParallelRefProcEnabled -XX:MaxGCPauseMillis=200 -XX:+UnlockExperimentalVMOptions -XX:+DisableExplicitGC -XX:+AlwaysPreTouch -XX:G1NewSizePercent=40 -XX:G1MaxNewSizePercent=50 -XX:G1HeapRegionSize=16M -XX:G1ReservePercent=15 -XX:G1HeapWastePercent=5 -XX:G1MixedGCCountTarget=4 -XX:InitiatingHeapOccupancyPercent=20 -XX:G1MixedGCLiveThresholdPercent=90 -XX:G1RSetUpdatingPauseTimePercent=5 -XX:SurvivorRatio=32 -XX:+PerfDisableSharedMem -XX:MaxTenuringThreshold=1 -Dusing.aikars.flags=https://mcflags.emc.gs -Daikars.new.flags=true -jar server.jar nogui
+              ```
 
-      - shutdown-script:
+        (wihouth backup)
+        `script #!/bin/bash mount /dev/disk/by-id/google-minecraft-disk /home/minecraft cd /home/minecraft screen -d -m -S mcs java -Xms14G -Xmx14G -XX:+UseG1GC -XX:+ParallelRefProcEnabled -XX:MaxGCPauseMillis=200 -XX:+UnlockExperimentalVMOptions -XX:+DisableExplicitGC -XX:+AlwaysPreTouch -XX:G1NewSizePercent=40 -XX:G1MaxNewSizePercent=50 -XX:G1HeapRegionSize=16M -XX:G1ReservePercent=15 -XX:G1HeapWastePercent=5 -XX:G1MixedGCCountTarget=4 -XX:InitiatingHeapOccupancyPercent=20 -XX:G1MixedGCLiveThresholdPercent=90 -XX:G1RSetUpdatingPauseTimePercent=5 -XX:SurvivorRatio=32 -XX:+PerfDisableSharedMem -XX:MaxTenuringThreshold=1 -Dusing.aikars.flags=https://mcflags.emc.gs -Daikars.new.flags=true -jar server.jar nogui `
 
-      ```script
-      #!/bin/bash
-      sudo screen -r -X stuff 'stop\n'
-      ```
+              - shutdown-script:
 
-9. Finish config in frontend and backend
+              ```script
+              #!/bin/bash
+              sudo screen -r -X stuff 'stop\n'
+              ```
+
+9.  Finish config in frontend and backend
 
 - frontend/constants > change ipAddress
 - functions/scripts/config > change projectId
@@ -182,7 +185,7 @@ sudo su
   - Move from uploaded file to minecraft folder:
 
 ```script
-mv ../{googleName}/{fileName} ./
+mv ../meingraf420/{fileName} ./
 ```
 
 - Remove file
@@ -200,16 +203,16 @@ rm -r {folderName}
 - Copy minecraft folder from vm to storage
 
 ```script
-gsutil cp -r . gs://{projectId}-mc-backup/minecraft
+gsutil cp -r . gs://meingraf421-mc-backup/minecraft
 ```
 
 - Copy minecraft folder from storage to vm
 
-1. Put your minecraft world in {projectId}-mc-backup: https://console.cloud.google.com/storage
+1. Put your minecraft world in meingraf421-mc-backup: https://console.cloud.google.com/storage
 
 ```script
 rm .
-gsutil cp -r gs://{projectId}-mc-backup/minecraft/* .
+gsutil cp -r gs://meingraf421-mc-backup/minecraft/* .
 chmod 755 /home/minecraft/backup.sh
 ```
 
@@ -219,14 +222,14 @@ chmod 755 /home/minecraft/backup.sh
 rm -r world
 rm -r world_nether
 rm -r world_the_end
-gsutil cp -r gs://{projectId}-mc-backup/{date}/world .
-gsutil cp -r gs://{projectId}-mc-backup/minecraft/world_nether .
-gsutil cp -r gs://{projectId}-mc-backup/minecraft/world_the_end .
+gsutil cp -r gs://meingraf421-mc-backup/{date}/world .
+gsutil cp -r gs://meingraf421-mc-backup/minecraft/world_nether .
+gsutil cp -r gs://meingraf421-mc-backup/minecraft/world_the_end .
 
 ```
 
 - Remove folder in storage
 
 ```script
-gsutil rm gs://{projectId}-mc-backup/{dirName}/**
+gsutil rm gs://meingraf421-mc-backup/{dirName}/**
 ```

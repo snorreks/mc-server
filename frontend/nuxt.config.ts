@@ -46,13 +46,13 @@ const nuxtConfig: NuxtConfig = {
   firebase: {
     onFirebaseHosting: true,
     config: {
-      apiKey: 'AIzaSyBfYwD--6b7OnbTssvnxIHOZ6YR0c2HEBk',
-      authDomain: 'mc-ag-server.firebaseapp.com',
-      projectId: 'mc-ag-server',
-      storageBucket: 'mc-ag-server.appspot.com',
-      messagingSenderId: '486243071346',
-      appId: '1:486243071346:web:c60da1fa60ff18af8d19eb',
-      measurementId: 'G-M2J5SR86XV',
+      apiKey: 'AIzaSyAWK3dvbxOzwv--vgTwmIHggkfMwS9j5N8',
+      authDomain: 'meingraf421.firebaseapp.com',
+      projectId: 'meingraf421',
+      storageBucket: 'meingraf421.appspot.com',
+      messagingSenderId: '262684285044',
+      appId: '1:262684285044:web:396c0824d70d7c89c59921',
+      measurementId: 'G-1JLFTBG3FC',
     },
     services: {
       functions: {

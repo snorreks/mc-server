@@ -14,6 +14,14 @@ const init = async () => {
         password: '123456',
       },
     });
+    await createUser({
+      userForm: {
+        email: 'jocute98@hotmail.com',
+        username: 'jocute98',
+        displayName: 'Joaboie',
+        password: '123456',
+      },
+    });
     await fun.cleanup();
   } catch (e) {
     console.error(e);
