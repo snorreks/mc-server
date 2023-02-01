@@ -68,6 +68,7 @@ const videoIds = [
   'dZStUzYE8Uw',
   'WX1gtQk6NaQ',
   'GWXXsxa2moA',
+  'tyQYCGTNREk',
 ];
 
 export default Vue.extend({
