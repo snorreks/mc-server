@@ -16,7 +16,6 @@
   },
   "hosting": {
     "predeploy": ["cd frontend && bun generate"],
-    "site": "minecraft-ag",
     "public": "frontend/dist",
     "ignore": ["firebase.json", "**/.*", "**/node_modules/**"],
     "rewrites": [
