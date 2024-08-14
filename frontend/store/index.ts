@@ -5,6 +5,7 @@ import * as auth from '~/store/auth';
 import * as user from '~/store/user';
 import * as preference from '~/store/preference';
 import * as google from '~/store/google';
+import * as storage from '~/store/storage';
 
 export const state = () => ({
   notification: {
@@ -112,5 +113,6 @@ export const accessorType = getAccessorType({
     preference,
     user,
     google,
+    storage,
   },
 });

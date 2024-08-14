@@ -1,10 +1,10 @@
-import { https } from 'firebase-functions';
+import { https } from 'firebase-functions/v2';
 
 /**
 Validates auth context for callable function 
 */
-export const assertIsActive = (context: https.CallableContext): void => {
-  if (!context.auth?.token.isActive) {
+export const assertIsActive = (request: https.CallableRequest): void => {
+  if (!request.auth?.token['isActive']) {
     throw new https.HttpsError('permission-denied', 'You are not an AG Boie');
   }
 };
@@ -16,7 +16,7 @@ export const assert = (data: unknown, key: string): unknown => {
   if (!data || !(data as Record<string, unknown>)[key]) {
     throw new https.HttpsError(
       'invalid-argument',
-      `function called without ${key} data`
+      `function called without ${key} data`,
     );
   } else {
     return (data as Record<string, unknown>)[key];
@@ -33,7 +33,7 @@ export const catchErrors = async <T>(promise: Promise<T> | T): Promise<T> => {
     if (e instanceof https.HttpsError) {
       throw e;
     } else {
-      throw new https.HttpsError('unknown', e);
+      throw new https.HttpsError('unknown', e as string);
     }
   }
 };

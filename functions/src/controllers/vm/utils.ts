@@ -1,8 +1,9 @@
 import { google } from 'googleapis';
-import { ServerStatusUpdateData } from '../../../@types';
+import type { ServerStatusUpdateData } from '$types';
 
-import { db } from '../../configs/dbConfig';
-import { serverTimestamp } from '../../configs/firestoreConfig';
+import { database } from '../../configs/database';
+import { serverTimestamp } from '../../configs/firestore';
+import { vmZone, vmInstance, projectId } from '../../../../constant';
 
 const auth = new google.auth.GoogleAuth({
   // Scopes can be specified either as an array or as a single, space-delimited string.
@@ -11,9 +12,9 @@ const auth = new google.auth.GoogleAuth({
 
 const compute = google.compute('v1');
 const instanceParams = {
-  zone: 'europe-west1-b',
-  instance: 'mc-server',
-  project: 'meingraf421',
+  zone: vmZone,
+  instance: vmInstance,
+  project: projectId,
 };
 
 /**
@@ -22,8 +23,11 @@ Create an user in firebase and firestore
 export const stopServer = async (): Promise<void> => {
   const authClient = await auth.getClient();
   await compute.instances.stop({ ...instanceParams, auth: authClient });
-  const serverStatusSnap = await db.collection('status').doc('ag-server').get();
-  const setLastOnline = !!serverStatusSnap.data()?.serverIsOn;
+  const serverStatusSnap = await database
+    .collection('status')
+    .doc('ag-server')
+    .get();
+  const setLastOnline = !!serverStatusSnap.data()?.['serverIsOn'];
 
   await setServerStatus({
     serverIsOn: false,
@@ -81,7 +85,7 @@ export const setServerStatus = async ({
     serverStatusData.serverStatus = serverStatus;
   }
 
-  await db
+  await database
     .collection('status')
     .doc('ag-server')
     .set(serverStatusData, { merge: true });

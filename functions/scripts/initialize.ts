@@ -1,10 +1,8 @@
-// To execute: cd in to functions and type: "ts-node scripts/init-project.ts"
-
 import fun from './config';
 
-import { createUser } from '../src/controllers/user/createUser';
+import { createUser } from '../src/controllers/auth/create-user';
 
-const init = async () => {
+const initialize = async () => {
   try {
     await createUser({
       userForm: {
@@ -22,7 +20,7 @@ const init = async () => {
         password: '123456',
       },
     });
-    await fun.cleanup();
+    fun.cleanup();
   } catch (e) {
     console.error(e);
   }
@@ -31,4 +29,4 @@ const init = async () => {
 };
 
 // eslint-disable-next-line @typescript-eslint/no-floating-promises
-init();
+initialize();

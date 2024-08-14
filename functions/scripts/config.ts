@@ -1,8 +1,9 @@
 import functions from 'firebase-functions-test';
+import { projectId } from '../../constant';
+import {resolve} from "node:path"
 
-const serviceAccountPath = '../service-account.json';
 
-const projectId = 'meingraf421';
+const serviceAccountPath = resolve(__dirname, './service-account.json');
 
 const fun = functions(
   {
@@ -10,7 +11,7 @@ const fun = functions(
     databaseURL: `https://${projectId}.firebaseio.com`,
     storageBucket: `${projectId}.appspot.com`,
   },
-  serviceAccountPath
+  serviceAccountPath,
 );
 
 export default fun;

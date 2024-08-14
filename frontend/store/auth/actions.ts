@@ -34,7 +34,7 @@ export default actionTree(
         let email = emailOrUsername;
         if (!isEmail) {
           const getEmailFromUsername = this.app.$fire.functions.httpsCallable(
-            'authGetEmailFromUsername'
+            'auth_get_email_from_username'
           );
           const { data } = await getEmailFromUsername({
             username: emailOrUsername,
@@ -77,7 +77,7 @@ export default actionTree(
     async isUniqueUsername(_, { username }): Promise<boolean> {
       try {
         const getEmailFromUsername = this.app.$fire.functions.httpsCallable(
-          'authGetEmailFromUsername'
+          'auth_get_email_from_username'
         );
         const { data } = await getEmailFromUsername({ username });
         return data === null;

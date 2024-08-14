@@ -1,14 +1,15 @@
-import { https } from 'firebase-functions';
-import { auth } from '../../configs/authConfig';
+import { auth } from '../../configs/auth';
 import {
   assert,
   assertIsActive,
   catchErrors,
 } from '../../utils/functionHelpers';
-import { serverTimestamp } from '../../configs/firestoreConfig';
+import { serverTimestamp } from '../../configs/firestore';
 import { setUserData } from './utils';
-import type { UserCreateData, UserForm } from '../../../@types';
-import { getEmailFromUsername } from './getEmailFromUsername';
+import type { UserCreateData, UserForm } from '$types';
+import { getEmailFromUsername } from './get-email-from-username';
+import { https } from 'firebase-functions/v2';
+
 export interface AuthCreateRequest {
   email: string;
   displayName?: string;
@@ -55,15 +56,12 @@ export const createUser = async ({
   }
 };
 
-export default async (
-  data: unknown,
-  context: https.CallableContext
-): Promise<string> => {
-  assertIsActive(context);
-  const userForm = assert(data, 'userForm') as UserForm;
+export default async (request: https.CallableRequest): Promise<string> => {
+  assertIsActive(request);
+  const userForm = assert(request.data, 'userForm') as UserForm;
   return catchErrors(
     createUser({
       userForm,
-    })
+    }),
   );
 };

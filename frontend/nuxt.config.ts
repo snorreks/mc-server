@@ -1,4 +1,5 @@
 import type { NuxtConfig } from '@nuxt/types';
+import { firebasePublicConfig } from '../constant';
 import { primaryColor } from './constants';
 
 const isProductionMode = process.env.NODE_ENV === 'production';
@@ -45,18 +46,10 @@ const nuxtConfig: NuxtConfig = {
   },
   firebase: {
     onFirebaseHosting: true,
-    config: {
-      apiKey: 'AIzaSyAWK3dvbxOzwv--vgTwmIHggkfMwS9j5N8',
-      authDomain: 'meingraf421.firebaseapp.com',
-      projectId: 'meingraf421',
-      storageBucket: 'meingraf421.appspot.com',
-      messagingSenderId: '262684285044',
-      appId: '1:262684285044:web:396c0824d70d7c89c59921',
-      measurementId: 'G-1JLFTBG3FC',
-    },
+    config: firebasePublicConfig,
     services: {
       functions: {
-        location: 'europe-west3',
+        location: 'europe-west1',
       },
       firestore: true,
       auth: {
@@ -65,6 +58,7 @@ const nuxtConfig: NuxtConfig = {
         },
         ssr: false,
       },
+      storage: true,
     },
   },
   pwa: {

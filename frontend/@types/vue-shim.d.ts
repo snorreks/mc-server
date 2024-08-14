@@ -1,8 +1,9 @@
 /* eslint-disable @typescript-eslint/no-unused-vars */
 /* eslint-disable no-unused-vars */
 import Vue from 'vue';
-import { MetaInfo } from './vue';
+import type { MetaInfo as VueMetaInfo } from 'vue-meta';
 import { accessorType } from '~/store';
+type MetaInfo = VueMetaInfo;
 
 declare module 'vue/types/vue' {
   interface Vue {

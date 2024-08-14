@@ -1,5 +1,8 @@
 {
   "projects": {
-    "default": "meingraf421"
-  }
+    "default": "{projectId}"
+  },
+  "targets": {},
+  "etags": {},
+  "dataconnectEmulatorConfig": {}
 }

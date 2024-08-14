@@ -33,6 +33,25 @@
                 </v-list-item-content>
               </v-list-item>
 
+              <v-list-item v-if="serverIsOn">
+                <v-list-item-icon>
+                  <v-icon :color="skipNextAutoShutdown ? 'green' : 'red'">
+                    {{
+                      skipNextAutoShutdown ? 'mdi-calendar-check' : 'mdi-clock'
+                    }}
+                  </v-icon>
+                </v-list-item-icon>
+                <v-list-item-content>
+                  <v-list-item-title>
+                    {{
+                      skipNextAutoShutdown
+                        ? 'The server will not shutdown at 6 am'
+                        : 'The server will shutdown at 6 am'
+                    }}
+                  </v-list-item-title>
+                </v-list-item-content>
+              </v-list-item>
+
               <v-list-item v-if="!serverIsOn">
                 <v-list-item-icon>
                   <v-icon> mdi-calendar-clock </v-icon>
@@ -65,14 +84,29 @@
         >
           Start Server
         </v-btn>
+
         <v-btn
-          v-else-if="isActive"
+          v-if="isActive && serverIsOn"
+          class="my-2"
+          block
+          color="success"
+          @click="delayShutdown"
+        >
+          Delay shutdown
+        </v-btn>
+
+        <v-btn
+          v-if="isActive && serverIsOn"
           class="my-2"
           block
           color="error"
           @click="stopServer"
         >
           Stop Server
+        </v-btn>
+
+        <v-btn v-if="isActive" class="my-2" block @click="openBackupDialog">
+          Open Backups Dialog
         </v-btn>
 
         <v-tooltip v-model="showCopyTooltip" bottom>
@@ -104,6 +138,13 @@
           @ended="showVideoDialog = false"
         />
       </v-dialog>
+
+      <v-dialog v-model="showBackupsDialog" width="1023" height="725">
+        <LazyBackupsDialog
+          v-if="showBackupsDialog"
+          @close="showBackupsDialog = false"
+        />
+      </v-dialog>
     </v-container>
   </v-container>
 </template>
@@ -111,7 +152,7 @@
 <script lang="ts">
 import Vue from 'vue';
 import { SnapShotListener } from '~/@types';
-import { ipAddress, hasMap } from '~/constants';
+import { ipAddress, hasMap, mapIpAddress } from '~/constants';
 import { toCalendar } from '~/utils';
 
 export const delay = (ms: number): Promise<void> =>
@@ -124,6 +165,7 @@ export default Vue.extend({
     checkingServerStatus: false,
     showCopyTooltip: false,
     showVideoDialog: false,
+    showBackupsDialog: false,
     ipAddress,
     hasMap,
   }),
@@ -136,6 +178,9 @@ export default Vue.extend({
     },
     status(): string {
       return this.serverStatus?.serverStatus;
+    },
+    skipNextAutoShutdown(): boolean {
+      return this.serverStatus?.skipNextAutoShutdown;
     },
     lastOnline(): string | undefined {
       if (this.serverStatus.lastOnline) {
@@ -152,7 +197,7 @@ export default Vue.extend({
       }
     },
     mapHref(): string {
-      return `http://${ipAddress}:8123/`;
+      return `http://${ipAddress}:${mapIpAddress}/`;
     },
   },
   created(): void {
@@ -186,8 +231,16 @@ export default Vue.extend({
       this.spinTheWheel();
       await this.$accessor.google.stopServer();
     },
+    openBackupDialog(): void {
+      this.showBackupsDialog = true;
+    },
+    delayShutdown(): void {
+      this.spinTheWheel();
+      this.$accessor.google.delayShutdown();
+    },
+
     spinTheWheel(): void {
-      if (Math.random() < 0.2) {
+      if (Math.random() < 0.5) {
         this.showVideoDialog = true;
       }
     },

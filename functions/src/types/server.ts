@@ -7,7 +7,8 @@ export interface ServerStatusData {
   serverStatus?: string;
 }
 
-export interface ServerStatusUpdateData extends ServerStatusData {
+export interface ServerStatusUpdateData
+  extends Omit<ServerStatusData, 'updatedAt' | 'lastOnline'> {
   updatedAt?: FieldValue;
   lastOnline?: FieldValue;
 }

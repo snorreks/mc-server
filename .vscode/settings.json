@@ -2,7 +2,7 @@
   "eslint.workingDirectories": ["./functions", "./frontend"],
   "npm.packageManager": "yarn",
   "editor.defaultFormatter": "esbenp.prettier-vscode",
-  "auto-close-tag.disableOnLanguage": ["typescript"],
+  "editor.formatOnSave": true,
   "cSpell.ignorePaths": [
     "**/package-lock.json",
     "**/node_modules/**",
@@ -18,7 +18,6 @@
     "functions/lib": true,
     "**/.yarn": true,
     "**/.nuxt": true,
-    "**/dist": true,
     "**/node_modules": true,
     "**/.firebase": true
   },

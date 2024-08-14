@@ -6,7 +6,8 @@ export default actionTree(
     async createUser(_, { userForm }: { userForm: any }): Promise<boolean> {
       this.app.$accessor.start();
       try {
-        const createUser = this.app.$fire.functions.httpsCallable('createUser');
+        const createUser =
+          this.app.$fire.functions.httpsCallable('auth_create_user');
         await createUser({ userForm });
 
         this.app.$accessor.end();

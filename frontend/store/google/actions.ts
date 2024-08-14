@@ -6,8 +6,8 @@ export default actionTree(
     async stopServer(_): Promise<boolean> {
       this.app.$accessor.setAppLoading(true);
       try {
-        const stopServer = this.app.$fire.functions.httpsCallable('stopServer');
-        await stopServer({});
+        const callable = this.app.$fire.functions.httpsCallable('vm');
+        await callable({ type: 'stop' });
 
         this.app.$accessor.setAppLoading(false);
         this.app.$accessor.openNotification({
@@ -25,9 +25,8 @@ export default actionTree(
     async startServer(_): Promise<boolean> {
       this.app.$accessor.setAppLoading(true);
       try {
-        const startServer =
-          this.app.$fire.functions.httpsCallable('startServer');
-        await startServer({});
+        const callable = this.app.$fire.functions.httpsCallable('vm');
+        await callable({ type: 'start' });
 
         this.app.$accessor.setAppLoading(false);
         this.app.$accessor.openNotification({
@@ -45,9 +44,22 @@ export default actionTree(
     async checkServerStatus(_): Promise<boolean> {
       this.app.$accessor.start();
       try {
-        const checkServerStatus =
-          this.app.$fire.functions.httpsCallable('checkServerStatus');
-        await checkServerStatus({});
+        const callable = this.app.$fire.functions.httpsCallable('vm');
+        await callable({ type: 'check' });
+        this.app.$accessor.end();
+
+        return true;
+      } catch (e) {
+        console.error('checkServerStatus', e);
+        this.app.$accessor.endWithError(e.message);
+        return false;
+      }
+    },
+    async delayShutdown(_): Promise<boolean> {
+      this.app.$accessor.start();
+      try {
+        const callable = this.app.$fire.functions.httpsCallable('vm');
+        await callable({ type: 'delay' });
         this.app.$accessor.end();
 
         return true;
