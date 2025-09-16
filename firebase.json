@@ -8,14 +8,14 @@
   },
   "functions": {
     "predeploy": [
-      "bun run build:functions",
+      "pnpm run build:functions",
       "cd functions/dist",
-      "npm install firebase-functions"
+      "pnpm install firebase-functions"
     ],
     "source": "functions/dist"
   },
   "hosting": {
-    "predeploy": ["cd frontend && bun generate"],
+    "predeploy": ["cd frontend && pnpm run generate"],
     "public": "frontend/dist",
     "ignore": ["firebase.json", "**/.*", "**/node_modules/**"],
     "rewrites": [

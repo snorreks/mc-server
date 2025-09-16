@@ -5,10 +5,11 @@ export default actionTree(
   { state: () => ({}) },
   {
     async listBackups(_): Promise<BackupData[]> {
-      this.app.$accessor.setAppLoading(true);
       try {
         const storage = this.app.$fire.storage;
+        console.log('listBackups', storage);
         const backupsList = await storage.ref('backup').listAll();
+        console.log('backupsList', backupsList);
         const backups: BackupData[] = [];
         for (const item of backupsList.items) {
           backups.push({
@@ -16,11 +17,9 @@ export default actionTree(
             getDownloadURL: () => item.getDownloadURL(),
           });
         }
-        this.app.$accessor.setAppLoading(false);
         return backups;
       } catch (e) {
         console.error('stopServer', e);
-        this.app.$accessor.setAppLoading(false);
         this.app.$accessor.endWithError(e.message);
         return [];
       }

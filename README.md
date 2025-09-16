@@ -12,7 +12,6 @@ Replace:
    5. Create PWA app end copy config -> constant.ts
    6. Add your account in users settings
 3. Go to GCP and setup free trial, select the firebase project and create a VM https://console.cloud.google.com/compute/instances
-
    1. Name: mc-server
    2. Zone: europa-west1-b
    3. Machine type: n2-highmem-2
@@ -34,7 +33,6 @@ Replace:
          1. External IP > Create IP address > name: mc-ip > done
 
 4. Setup Firewall rule
-
    1. In GCP: search for VPC network
    2. Click "v default"
    3. Firewall rules > Add firewall rule
@@ -48,7 +46,6 @@ Replace:
          - udp:24454
 
 5. Open SSH:
-
    1. setup disk:
 
    ```script
@@ -64,15 +61,12 @@ Replace:
    3. Upload files from vm-files into /home/minecraft
 
    4. Download Minecraft server (rename jar file to server.jar):
-
    - PaperMC:
-
      1. Download server.jar: https://papermc.io/downloads
 
      ```script
      mv ../{accountName}/server.jar ./
      ```
-
    5. Start server to test
 
    ```script
@@ -80,7 +74,6 @@ Replace:
    ```
 
 6. Close vm and add startup and shutdown script in custom metadata
-
    - startup-script:
 
    ```bash
@@ -95,7 +88,6 @@ Replace:
    ```
 
    Get full startup script here https://docs.papermc.io/misc/tools/start-script-gen
-
    - shutdown-script:
 
    ```bash
@@ -108,9 +100,9 @@ Replace:
    2. Go to constants and change the variables
    3. Run
    ```
-   bun install
-   bun run setup
-   bun run deploy
+   deno install
+   deno run setup
+   deno run deploy
    ```
 
 # Plugins

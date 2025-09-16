@@ -1,17 +1,28 @@
 import { build } from 'esbuild';
-import { dirname as _dirname } from 'node:path';
+import { dirname as _dirname, join } from 'node:path';
+import { mkdir, writeFile } from 'node:fs/promises';
 
 const createPackageJson = async () => {
-  await Bun.write(
-    'dist/package.json',
-    JSON.stringify({
-      type: 'module',
-      main: 'index.js',
-      engines: {
-        node: '20',
-      },
-    }),
+  const distDir = 'dist';
+
+  // Create the directory, { recursive: true } prevents errors if it already exists
+  await mkdir(distDir, { recursive: true });
+
+  const packageJsonContent = {
+    type: 'module',
+    main: 'index.js',
+    engines: {
+      node: '20',
+    },
+  };
+
+  // Write the file, using JSON.stringify with spacing for readability
+  await writeFile(
+    join(distDir, 'package.json'),
+    JSON.stringify(packageJsonContent, null, 2),
   );
+
+  console.log('✅ Created dist/package.json');
 };
 
 const executeEsbuild = async (options: {
@@ -71,18 +82,23 @@ const executeEsbuild = async (options: {
   if (result.errors?.length) {
     throw new Error(result.errors[0]?.text);
   }
+
+  console.log('✅ Executed esbuild');
 };
 
-await Promise.all([
-  executeEsbuild({
-    inputPath: 'src/index.ts',
-    outputPath: 'dist/index.js',
-    sourceRoot: '.',
-    keepNames: false,
-    requireFix: true,
-    sourcemap: false,
-    tsconfig: './tsconfig.json',
-    minify: false,
-  }),
-  createPackageJson(),
-]);
+const execute = () =>
+  Promise.all([
+    executeEsbuild({
+      inputPath: 'src/index.ts',
+      outputPath: 'dist/index.js',
+      sourceRoot: '.',
+      keepNames: false,
+      requireFix: true,
+      sourcemap: false,
+      tsconfig: './tsconfig.json',
+      minify: false,
+    }),
+    createPackageJson(),
+  ]);
+
+execute();

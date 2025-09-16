@@ -8,7 +8,8 @@
       </v-btn>
     </v-card-title>
     <v-card-text>
-      <v-list class="scrollable-list">
+      <v-progress-linear v-if="loading" indeterminate></v-progress-linear>
+      <v-list v-else class="scrollable-list">
         <v-list-item
           v-for="(backup, index) in sortedBackups"
           :key="index"
@@ -36,6 +37,7 @@ export default Vue.extend({
   name: 'VideoPlayer',
   data: () => ({
     backups: [] as BackupData[],
+    loading: true,
   }),
   computed: {
     sortedBackups(): BackupData[] {
@@ -49,9 +51,11 @@ export default Vue.extend({
     },
   },
   async mounted() {
+    this.loading = true;
     const backups = await this.$accessor.storage.listBackups();
     console.log(backups);
     this.backups = backups;
+    this.loading = false;
   },
   methods: {
     parseBackupDate(name: string): Date {
