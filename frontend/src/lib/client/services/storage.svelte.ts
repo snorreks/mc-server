@@ -3,9 +3,10 @@ import { getFirebaseStorage } from '$lib/client/firebase';
 import type { BackupData } from '$lib/types';
 
 export async function getModpackDownloadURL(): Promise<string> {
-  const storage = getFirebaseStorage();
-  const modpackRef = ref(storage, 'modpack/beyond-depth-full.zip');
-  return getDownloadURL(modpackRef);
+  return 'https://storage.googleapis.com/agmcs2026.firebasestorage.app/modpack/beyond-depth-full.zip';
+  // const storage = getFirebaseStorage();
+  // const modpackRef = ref(storage, 'modpack/beyond-depth-full.zip');
+  // return getDownloadURL(modpackRef);
 }
 
 export async function listBackups(): Promise<BackupData[]> {

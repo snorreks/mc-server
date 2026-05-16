@@ -6,6 +6,8 @@
 
     let modpackUrl = $state('');
     let copied = $state(false);
+    let copiedJvm = $state(false);
+    const jvmArgs = '-XX:+UseZGC -XX:+AlwaysPreTouch -XX:+ZProactive -XX:+DisableExplicitGC';
     let currentStep = $state(1);
 
     $effect(() => {
@@ -30,6 +32,21 @@
         }
         copied = true;
         setTimeout(() => (copied = false), 2000);
+    }
+
+    async function copyJvmArgs() {
+        try {
+            await navigator.clipboard.writeText(jvmArgs);
+        } catch {
+            const ta = document.createElement('textarea');
+            ta.value = jvmArgs;
+            document.body.appendChild(ta);
+            ta.select();
+            document.execCommand('copy');
+            document.body.removeChild(ta);
+        }
+        copiedJvm = true;
+        setTimeout(() => (copiedJvm = false), 2000);
     }
 </script>
 
@@ -74,8 +91,13 @@
             <div class="space-y-4 animate-fade-in">
                 <h4 class="font-bold text-lg">3. Boost Performance</h4>
                 <p class="text-sm text-base-content/70">Go to Instance <strong>Settings → Java</strong>. Set Max Memory to <strong>8192 MB</strong>, and paste these JVM arguments:</p>
-                <div class="bg-base-200 p-3 rounded-lg font-mono text-xs overflow-x-auto relative group">
-                    <code>-XX:+UseG1GC -XX:MaxGCPauseMillis=50 -XX:+UnlockExperimentalVMOptions</code>
+                <div class="join w-full shadow-sm">
+                    <div class="bg-base-200 p-3 rounded-lg font-mono text-xs overflow-x-auto join-item w-full">
+                        <code>-XX:+UseZGC -XX:+AlwaysPreTouch -XX:+ZProactive -XX:+DisableExplicitGC</code>
+                    </div>
+                    <button onclick={copyJvmArgs} class="btn {copiedJvm ? 'btn-success' : 'btn-neutral'} join-item w-28">
+                        {copiedJvm ? '✅ Copied' : '📋 Copy'}
+                    </button>
                 </div>
                 <p class="text-sm font-bold text-success mt-2">You're ready! Launch the instance and play.</p>
             </div>
