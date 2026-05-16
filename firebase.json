@@ -1,28 +1,12 @@
 {
   "firestore": {
-    "rules": "firestore.rules",
-    "indexes": "firestore.indexes.json"
+    "rules": "backend/src/rules/firestore.rules",
+    "indexes": "backend/src/rules/firestore.indexes.json"
   },
   "storage": {
-    "rules": "storage.rules"
+    "rules": "backend/src/rules/storage.rules"
   },
   "functions": {
-    "predeploy": [
-      "pnpm run build:functions",
-      "cd functions/dist",
-      "pnpm install firebase-functions"
-    ],
-    "source": "functions/dist"
-  },
-  "hosting": {
-    "predeploy": ["cd frontend && pnpm run generate"],
-    "public": "frontend/dist",
-    "ignore": ["firebase.json", "**/.*", "**/node_modules/**"],
-    "rewrites": [
-      {
-        "source": "**",
-        "destination": "/index.html"
-      }
-    ]
+    "source": "backend/dist"
   }
 }

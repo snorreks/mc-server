@@ -1,0 +1,20 @@
+{
+  "name": "mc-server-scripts",
+  "type": "module",
+  "private": true,
+  "scripts": {
+    "setup": "bun run src/lib/setup/project.ts",
+    "setup:dev": "bun run src/lib/setup/project.ts --mode=development",
+    "setup:prod": "bun run src/lib/setup/project.ts --mode=production",
+    "setup:dry": "bun run src/lib/setup/project.ts --dry-run",
+    "setup:gce-vm": "bun run src/lib/setup/gce_vm.ts",
+    "check": "echo 'Scripts are type-checked by Biome at root level'"
+  },
+  "dependencies": {
+    "firebase-tools": "^15.18.0",
+    "firebase-admin": "^13.10.0"
+  },
+  "devDependencies": {
+    "@types/node": "^25.8.0"
+  }
+}

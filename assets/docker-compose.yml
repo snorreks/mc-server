@@ -1,0 +1,37 @@
+# assets/docker-compose.yml
+# Reference config for the itzg/minecraft-server Docker container.
+# When deploying via GCE VM, the setup script reads scripts/.env and passes
+# container env vars directly — no docker-compose needed on the VM.
+# Keep this as documentation of available options.
+
+services:
+  mc:
+    image: itzg/minecraft-server:latest
+    container_name: mc
+    restart: unless-stopped
+    ports:
+      - "25565:25565"
+    environment:
+      EULA: "TRUE"
+      TYPE: CURSEFORGE
+      CF_API_KEY: ${CF_API_KEY}
+      # Set your modpack ID here:
+      CF_MODPACK_ID: ""
+      # Or use a modpack page URL:
+      # CF_MODPACK_PAGE_URL: "https://www.curseforge.com/minecraft/modpacks/all-the-mods-9"
+      MEMORY: 12G
+      DIFFICULTY: normal
+      MAX_PLAYERS: 20
+      VIEW_DISTANCE: 12
+      ENABLE_RCON: "true"
+      RCON_PASSWORD: "minecraft"
+      SNOOPER_ENABLED: "false"
+      ENABLE_COMMAND_BLOCK: "true"
+      SPAWN_PROTECTION: 0
+      MAX_TICK_TIME: -1
+      # Auto-download modpack on server start
+      CF_FORCE_SYNCHRONIZE: "true"
+    volumes:
+      - /mnt/disks/data:/data
+    tty: true
+    stdin_open: true
