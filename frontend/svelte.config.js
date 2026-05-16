@@ -1,7 +1,7 @@
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { vitePreprocess } from '@sveltejs/vite-plugin-svelte';
-import adapter from 'svelte-adapter-bun';
+import adapter from '@sveltejs/adapter-netlify';
 
 const projectDirectory = dirname(fileURLToPath(import.meta.url));
 const rootDirectory = resolve(projectDirectory, '..');
@@ -9,7 +9,7 @@ const rootDirectory = resolve(projectDirectory, '..');
 const config = {
   preprocess: [vitePreprocess()],
   kit: {
-    adapter: adapter({ out: 'build' }),
+    adapter: adapter(),
     alias: {
       $logger: resolve(projectDirectory, 'src/lib/utils/logger.ts'),
       $config: resolve(rootDirectory, 'config.ts'),
