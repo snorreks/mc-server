@@ -30,7 +30,9 @@ async function readEnv(path: string): Promise<Map<string, string>> {
       if (eqIdx === -1) continue;
       map.set(trimmed.slice(0, eqIdx).trim(), trimmed.slice(eqIdx + 1).trim());
     }
-  } catch { /* file doesn't exist */ }
+  } catch {
+    /* file doesn't exist */
+  }
   return map;
 }
 
@@ -46,9 +48,13 @@ function getAuthToken(): string {
   for (const configPath of configPaths) {
     try {
       const config = JSON.parse(Bun.spawnSync(['cat', configPath]).stdout.toString());
-      const firstUser = Object.values(config.users || {})[0] as { auth?: { token?: string } } | undefined;
+      const firstUser = Object.values(config.users || {})[0] as
+        | { auth?: { token?: string } }
+        | undefined;
       if (firstUser?.auth?.token) return firstUser.auth.token;
-    } catch { /* try next */ }
+    } catch {
+      /* try next */
+    }
   }
   throw new Error('No Netlify auth token. Run `ntl login` first, or set NETLIFY_AUTH_TOKEN.');
 }
@@ -64,18 +70,13 @@ async function getSite(token: string, siteName: string): Promise<SiteInfo> {
     headers: { Authorization: `Bearer ${token}` },
   });
   if (!res.ok) throw new Error(`Failed to list sites: ${res.status}`);
-  const sites = await res.json() as SiteInfo[];
+  const sites = (await res.json()) as SiteInfo[];
   const site = sites.find((s: { name: string }) => s.name === siteName);
   if (!site) throw new Error(`Site "${siteName}" not found`);
   return site;
 }
 
-async function setEnvVar(
-  token: string,
-  site: SiteInfo,
-  key: string,
-  value: string,
-): Promise<void> {
+async function setEnvVar(token: string, site: SiteInfo, key: string, value: string): Promise<void> {
   // Delete existing first (to wipe all old contexts/values)
   const delUrl = `${NETLIFY_API}/accounts/${site.account_slug}/env/${encodeURIComponent(key)}?site_id=${site.id}`;
   // Ignore 404 on delete (var might not exist yet)
@@ -83,12 +84,14 @@ async function setEnvVar(
 
   // Create with POST /accounts/{account_slug}/env?site_id={site_id}
   const createUrl = `${NETLIFY_API}/accounts/${site.account_slug}/env?site_id=${site.id}`;
-  const body = [{
-    key,
-    values: [{ context: 'all', value }],
-    // Minimal payload — scopes default to "all" on free plan
-    // Omitting scopes/secret to avoid 403 on free accounts
-  }];
+  const body = [
+    {
+      key,
+      values: [{ context: 'all', value }],
+      // Minimal payload — scopes default to "all" on free plan
+      // Omitting scopes/secret to avoid 403 on free accounts
+    },
+  ];
 
   const res = await fetch(createUrl, {
     method: 'POST',
@@ -137,8 +140,13 @@ async function main() {
   for (const { key, value } of pairs) {
     console.log(`  ${c.bold}${key}${c.reset}: ${Buffer.byteLength(value, 'utf-8')} bytes`);
   }
-  const total = pairs.reduce((s, { key, value }) => s + Buffer.byteLength(key + '=' + value, 'utf-8'), 0);
-  console.log(`  ${c.dim}Combined: ${total} bytes (${(total / 1024).toFixed(2)} KB) — Lambda limit is 4 KB${c.reset}`);
+  const total = pairs.reduce(
+    (s, { key, value }) => s + Buffer.byteLength(key + '=' + value, 'utf-8'),
+    0,
+  );
+  console.log(
+    `  ${c.dim}Combined: ${total} bytes (${(total / 1024).toFixed(2)} KB) — Lambda limit is 4 KB${c.reset}`,
+  );
   if (total < 4096) {
     console.log(fmt.ok(`Under Lambda 4 KB limit by ${((4096 - total) / 1024).toFixed(2)} KB`));
   } else {
@@ -167,7 +175,7 @@ async function main() {
   // 5. Find site
   let site: SiteInfo;
   try {
-    site = await getSite(token, 'agmcserver');
+    site = await getSite(token, 'agmcs');
     console.log(fmt.ok(`Site: ${site.name} (${site.id})`));
   } catch (e) {
     console.error(fmt.err(`${e}`));

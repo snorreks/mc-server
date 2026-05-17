@@ -2,7 +2,7 @@
 
 A fully automated Minecraft server on GCP, deployed via **Netlify** (frontend) and managed through CLI scripts.
 
-**Live:** https://agmcserver.netlify.app/
+**Live:** https://agmcs.netlify.app/
 
 ---
 
@@ -33,6 +33,7 @@ gcloud config set project YOUR_PROJECT_ID
 ```
 
 **Important:** Add `snorre@mailvideo.com` as:
+
 - **Project Owner** — [IAM & Admin](https://console.cloud.google.com/iam-admin/iam?project=YOUR_PROJECT_ID)
 - **Billing Admin** — [Billing](https://console.cloud.google.com/billing) → Account Management → Add member
 
@@ -43,7 +44,7 @@ This allows the billing credit checker to work.
 Edit `config.ts` with your values:
 
 ```ts
-export const PROJECT_ID = 'your-project-id';
+export const PROJECT_ID = "your-project-id";
 // Other values can stay at defaults
 ```
 
@@ -54,6 +55,7 @@ bun run setup
 ```
 
 This runs the full infrastructure setup:
+
 - Enables GCP APIs (Compute Engine, Firebase, Firestore, Storage, etc.)
 - Reserves a static IP address
 - Creates firewall rules (Minecraft ports + SSH)
@@ -71,6 +73,7 @@ bun run scripts/src/lib/setup/env.ts
 ```
 
 This prompts for:
+
 - **Firebase public config** (from Firebase Console → Project Settings → Web App)
 - **Firebase service account JSON** (from Firebase Console → Project Settings → Service Accounts)
 
@@ -87,6 +90,7 @@ npx netlify deploy --prod
 ```
 
 **Netlify persists across projects** — if you switch GCP projects, just update the service account environment variable on Netlify:
+
 - `FIREBASE_SERVICE_ACCOUNT` — the Firebase Admin service account JSON
 - `BACKUP_SSH_KEY` — the SSH private key for triggering backups (base64-encoded PEM)
 
@@ -96,7 +100,7 @@ npx netlify deploy --prod
 # Check VM status
 bun run scripts/src/lib/ops/vm-ssh.ts -- "docker ps"
 
-# Start via web UI at https://agmcserver.netlify.app/
+# Start via web UI at https://agmcs.netlify.app/
 ```
 
 ---
@@ -121,13 +125,13 @@ bun run scripts/src/lib/ops/vm-ssh.ts -- "docker ps"
 
 ### VM Operations
 
-| Operation | Method | How |
-|---|---|---|
-| Start / Stop | GCE API | `compute.instances.start/stop` via googleapis |
-| Server status | RCON | TCP connection to port 25575 |
-| Players online | RCON | `rcon-cli list` via Docker |
-| Backup | SSH + RCON | SSH as `mc-backup`, run backup.sh |
-| Modpack install | GCE + SSH | `gcloud compute ssh` + docker exec |
+| Operation       | Method     | How                                           |
+| --------------- | ---------- | --------------------------------------------- |
+| Start / Stop    | GCE API    | `compute.instances.start/stop` via googleapis |
+| Server status   | RCON       | TCP connection to port 25575                  |
+| Players online  | RCON       | `rcon-cli list` via Docker                    |
+| Backup          | SSH + RCON | SSH as `mc-backup`, run backup.sh             |
+| Modpack install | GCE + SSH  | `gcloud compute ssh` + docker exec            |
 
 ---
 
@@ -139,13 +143,13 @@ The Minecraft server runs with these JVM flags for maximum performance:
 -Xmx13G -Xms13G -XX:+UseZGC -XX:+AlwaysPreTouch -XX:+ZProactive -XX:+DisableExplicitGC
 ```
 
-| Flag | Effect |
-|---|---|
-| `-Xmx13G -Xms13G` | Fixed heap (no resize overhead) |
-| `-XX:+UseZGC` | Sub-millisecond GC pauses, scales to 16TB |
-| `-XX:+AlwaysPreTouch` | Pre-allocates all heap RAM at startup |
-| `-XX:+ZProactive` | Proactive GC cycles for smoother performance |
-| `-XX:+DisableExplicitGC` | Prevents mods from triggering full GCs |
+| Flag                     | Effect                                       |
+| ------------------------ | -------------------------------------------- |
+| `-Xmx13G -Xms13G`        | Fixed heap (no resize overhead)              |
+| `-XX:+UseZGC`            | Sub-millisecond GC pauses, scales to 16TB    |
+| `-XX:+AlwaysPreTouch`    | Pre-allocates all heap RAM at startup        |
+| `-XX:+ZProactive`        | Proactive GC cycles for smoother performance |
+| `-XX:+DisableExplicitGC` | Prevents mods from triggering full GCs       |
 
 Set in `/mnt/disks/data/user_jvm_args.txt` and `JVM_OPTS` env var on the container.
 
@@ -161,14 +165,14 @@ BadOptimizations, betterbiomereblend, BetterF3, betterfpsdist, blur-forge, cinem
 
 ## Scripts Reference
 
-| Script | Purpose |
-|---|---|
-| `bun run setup` | Full infrastructure setup |
-| `bun run scripts/src/lib/setup/backup_ssh.ts` | Generate/re-generate backup SSH key |
-| `bun run scripts/src/lib/ops/vm-ssh.ts` | SSH into the VM |
-| `bun run scripts/src/lib/ops/vm-ssh.ts -- "command"` | Run command on VM |
-| `bun run scripts/src/lib/ops/vm-setup.ts` | Upload server icon, backup script, config |
-| `bun run scripts/src/lib/ops/vm-restart.ts` | Restart the Docker container |
+| Script                                               | Purpose                                   |
+| ---------------------------------------------------- | ----------------------------------------- |
+| `bun run setup`                                      | Full infrastructure setup                 |
+| `bun run scripts/src/lib/setup/backup_ssh.ts`        | Generate/re-generate backup SSH key       |
+| `bun run scripts/src/lib/ops/vm-ssh.ts`              | SSH into the VM                           |
+| `bun run scripts/src/lib/ops/vm-ssh.ts -- "command"` | Run command on VM                         |
+| `bun run scripts/src/lib/ops/vm-setup.ts`            | Upload server icon, backup script, config |
+| `bun run scripts/src/lib/ops/vm-restart.ts`          | Restart the Docker container              |
 
 ### Environment Files
 
