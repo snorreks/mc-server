@@ -9,7 +9,20 @@ import { PROJECT_ID } from '$config';
 import { FIREBASE_SERVICE_ACCOUNT } from '$env/static/private';
 
 /**
- * Parses the Firebase service account JSON string and fixes private key newlines.
+ * Default fields that Google includes in service account JSON but Firebase Admin
+ * can infer. Stripping these from the env var saves ~500 bytes of Lambda env space.
+ */
+const DEFAULT_SA_FIELDS: Record<string, string> = {
+  type: 'service_account',
+  auth_uri: 'https://accounts.google.com/o/oauth2/auth',
+  token_uri: 'https://oauth2.googleapis.com/token',
+  auth_provider_x509_cert_url: 'https://www.googleapis.com/oauth2/v1/certs',
+  universe_domain: 'googleapis.com',
+};
+
+/**
+ * Parses the Firebase service account JSON string and fills in default fields
+ * that may have been stripped to save env var space.
  */
 export const parseServiceAccount = (serviceAccountString: string): ServiceAccount => {
   try {
@@ -23,15 +36,27 @@ export const parseServiceAccount = (serviceAccountString: string): ServiceAccoun
     // This prevents the "Unterminated string in JSON" error
     jsonString = jsonString.replace(/\r?\n/g, '\\n');
     // 3. Now it is safe to parse
-    const parsed = JSON.parse(jsonString) as ServiceAccount;
+    const parsed = JSON.parse(jsonString) as Record<string, string | undefined>;
 
-    // 4. Firebase Admin SDK actually *needs* literal newlines in the private key,
+    // 4. Fill in default fields if they were stripped to save space
+    for (const [key, value] of Object.entries(DEFAULT_SA_FIELDS)) {
+      if (!parsed[key]) {
+        parsed[key] = value;
+      }
+    }
+
+    // 5. Reconstruct client_x509_cert_url if missing (derived from client_email)
+    if (!parsed.client_x509_cert_url && parsed.client_email) {
+      parsed.client_x509_cert_url = `https://www.googleapis.com/robot/v1/metadata/x509/${encodeURIComponent(parsed.client_email!)}`;
+    }
+
+    // 6. Firebase Admin SDK actually *needs* literal newlines in the private key,
     // so we convert them back after parsing the JSON object.
     if (parsed.privateKey) {
       parsed.privateKey = parsed.privateKey.replace(/\\n/g, '\n');
     }
 
-    return parsed;
+    return parsed as ServiceAccount;
   } catch (error) {
     console.error('Invalid FIREBASE_SERVICE_ACCOUNT env:', serviceAccountString);
     throw error;

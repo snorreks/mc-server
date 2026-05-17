@@ -8,6 +8,7 @@
     "setup:prod": "bun run src/lib/setup/project.ts --mode=production",
     "setup:dry": "bun run src/lib/setup/project.ts --dry-run",
     "setup:gce-vm": "bun run src/lib/setup/gce_vm.ts",
+    "push-env": "bun run src/lib/setup/push-env.ts",
     "check": "echo 'Scripts are type-checked by Biome at root level'"
   },
   "dependencies": {
@@ -16,6 +17,7 @@
     "ssh2": "^1.17.0"
   },
   "devDependencies": {
-    "@types/node": "^25.8.0"
+    "@types/node": "^25.8.0",
+    "netlify-cli": "^26.0.2"
   }
 }

@@ -1,213 +1,219 @@
-Replace:
+# MC Server — Beyond Depth Modpack
 
-- {projectId} with your project id
-- {accountName} with your google account name
+A fully automated Minecraft server on GCP, deployed via **Netlify** (frontend) and managed through CLI scripts.
 
-1. Create google account
-2. Create Firebase project: https://console.firebase.google.com/
-   1. Enable auth > email/password
-   2. Enable firestore > eur3
-   3. Enable Storage
-   4. Functions > get started
-   5. Create PWA app end copy config -> constant.ts
-   6. Add your account in users settings
-3. Go to GCP and setup free trial, select the firebase project and create a VM https://console.cloud.google.com/compute/instances
-   1. Name: mc-server
-   2. Zone: europa-west1-b
-   3. Machine type: n2-highmem-2
-   4. Boot disk > Change > Boot disk type: SSD
+**Live:** https://agmcserver.netlify.app/
 
-   5. Identity and API access
-      1. Service account: Compute Engine default service account
-      2. Access scopes: Set access for each API
-         1. Storage: Read Write
-   6. Disks:
-      1. Add new disk:
-      2. Name: minecraft-disk
-      3. Type: SSD Persistent Disk
-      4. Source type: Blank disk
-      5. Size (GB): 50
-   7. Networking:
-      1. Network tags: minecraft-server
-      2. Network interfaces > edit:
-         1. External IP > Create IP address > name: mc-ip > done
+---
 
-4. Setup Firewall rule
-   1. In GCP: search for VPC network
-   2. Click "v default"
-   3. Firewall rules > Add firewall rule
-      1. Name: minecraft-rule
-      2. Targets: Specified target tags
-      3. Target tags: minecraft-server
-      4. Source filter: IP ranges
-      5. Source IP ranges: 0.0.0.0/0
-      6. Protocols and ports:
-         - tcp:25565,8123,8100
-         - udp:24454
+## Requirements
 
-5. Open SSH:
-   1. setup disk:
+- [Bun](https://bun.sh) (runtime for setup scripts)
+- [gcloud CLI](https://cloud.google.com/sdk/docs/install) (authenticated)
+- A Google Cloud Platform account (free trial gives $300 credits)
 
-   ```script
-   sudo su
-   apt-get install -y screen
-   mkdir -p /home/minecraft
-   mkfs.ext4 -F -E lazy_itable_init=0,lazy_journal_init=0,discard /dev/disk/by-id/google-minecraft-disk
-   mount -o discard,defaults /dev/disk/by-id/google-minecraft-disk /home/minecraft
-   ```
+---
 
-   2. setup java https://docs.papermc.io/misc/java-install#ubuntudebian
+## Quick Start
 
-   3. Upload files from vm-files into /home/minecraft
+### 1. GCP Setup
 
-   4. Download Minecraft server (rename jar file to server.jar):
-   - PaperMC:
-     1. Download server.jar: https://papermc.io/downloads
+Before running the automated setup, you need a GCP project with billing enabled.
 
-     ```script
-     mv ../{accountName}/server.jar ./
-     ```
-   5. Start server to test
+```bash
+# Login to gcloud
+gcloud auth login
 
-   ```script
-      java -Xms1G -Xmx7G -jar server.jar nogui
-   ```
+# Create a project (or use an existing one)
+gcloud projects create YOUR_PROJECT_ID
+gcloud config set project YOUR_PROJECT_ID
 
-6. Close vm and add startup and shutdown script in custom metadata
-   - startup-script:
-
-   ```bash
-   #!/bin/bash
-   # Mount the additional SSD data disk
-   mount /dev/disk/by-id/google-minecraft-disk /home/minecraft
-   # Run backup.sh every 4 hour
-   (crontab -l | grep -v '/home/minecraft/backup.sh'; echo "0 _/4 _ \* \* /home/minecraft/backup.sh") | crontab -
-   # Start the Minecraft server in a detached screen session with logging
-   cd /home/minecraft
-   screen -d -m -S mcs java -Xms14336M -Xmx14336M server.jar nogui
-   ```
-
-   Get full startup script here https://docs.papermc.io/misc/tools/start-script-gen
-   - shutdown-script:
-
-   ```bash
-   #!/bin/bash
-   sudo screen -r -X stuff '/stop\n'
-   ```
-
-7. Deploy pwa and functions:
-   1. Go to .firebaserc and replace project id
-   2. Go to constants and change the variables
-   3. Run
-   ```
-   deno install
-   deno run setup
-   deno run deploy
-   ```
-
-# Plugins
-
--mcmmp
-https://popicraft.net/jenkins/job/mcMMO/
-
--discordsrv
-https://www.spigotmc.org/resources/discordsrv.18494/
-
--dynmap
-http://www.dynmap.us/builds/dynmap/?C=M;O=D
-
-- bettersleeping
-
-- minablespawners
-
-- luckperms
-
-- sickle
-
-- imageonmap
-
-- chestsort
-
-# Commands
-
-Do all commands from 'minecraft' folder with su command:
-
-```script
-cd /home/minecraft
-sudo su
+# Link billing (required for Compute Engine)
+# Open https://console.cloud.google.com/billing/linkedaccount?project=YOUR_PROJECT_ID
 ```
 
-- Move (mv [options] source dest)
-  - Move from uploaded file to minecraft folder:
+**Important:** Add `snorre@mailvideo.com` as:
+- **Project Owner** — [IAM & Admin](https://console.cloud.google.com/iam-admin/iam?project=YOUR_PROJECT_ID)
+- **Billing Admin** — [Billing](https://console.cloud.google.com/billing) → Account Management → Add member
 
-```script
-mv ../{accountName}/{fileName} ./
+This allows the billing credit checker to work.
+
+### 2. Configure the Project
+
+Edit `config.ts` with your values:
+
+```ts
+export const PROJECT_ID = 'your-project-id';
+// Other values can stay at defaults
 ```
 
-- Remove file
+### 3. Run Automated Setup
 
-```script
-rm {fileName}
+```bash
+bun run setup
 ```
 
-- Remove folder
+This runs the full infrastructure setup:
+- Enables GCP APIs (Compute Engine, Firebase, Firestore, Storage, etc.)
+- Reserves a static IP address
+- Creates firewall rules (Minecraft ports + SSH)
+- Creates the GCE VM instance with the itzg/minecraft-server Docker image
+- Grants IAM roles to the Firebase Admin service account
+- **Generates SSH key** for triggering backups from the web app
+- Installs the backup script on the VM
 
-```script
-rm -r {folderName}
+The setup is idempotent — safe to re-run.
+
+### 4. Set Up Secrets
+
+```bash
+bun run scripts/src/lib/setup/env.ts
 ```
 
-- Copy minecraft folder from vm to storage
+This prompts for:
+- **Firebase public config** (from Firebase Console → Project Settings → Web App)
+- **Firebase service account JSON** (from Firebase Console → Project Settings → Service Accounts)
 
-```script
-gsutil cp -r . gs://{projectId}.appspot.com/minecraft
+These are saved to `frontend/.env` and `scripts/.env`.
+
+### 5. Deploy to Netlify
+
+The frontend deploys to Netlify. Connect your repo or use the CLI:
+
+```bash
+cd frontend
+npm run build
+npx netlify deploy --prod
 ```
 
-- Copy minecraft worlds from vm to storage
+**Netlify persists across projects** — if you switch GCP projects, just update the service account environment variable on Netlify:
+- `FIREBASE_SERVICE_ACCOUNT` — the Firebase Admin service account JSON
+- `BACKUP_SSH_KEY` — the SSH private key for triggering backups (base64-encoded PEM)
 
-```script
-gsutil -m cp -r world gs://{projectId}.appspot.com/backup/world
-gsutil -m cp -r world_nether gs://{projectId}.appspot.com/backup/world_nether
-gsutil -m cp -r world_the_end gs://{projectId}.appspot.com/backup/world_the_end
+### 6. Start the Server
 
+```bash
+# Check VM status
+bun run scripts/src/lib/ops/vm-ssh.ts -- "docker ps"
+
+# Start via web UI at https://agmcserver.netlify.app/
 ```
 
-gsutil -m cp -r gs://{projectId}.appspot.com/backup .
+---
 
-- Copy saved minecraft
-
-1. Put your minecraft world in {projectId}-md-backup: https://console.cloud.google.com/storage
-
-```script
-gsutil cp -r gs://{projectId}.appspot.com/minecraft/* .
-```
-
-- Copy worlds from a backup
-
-```script
-rm -r world
-rm -r world_nether
-rm -r world_the_end
-gsutil cp -r gs://{projectId}.appspot.com/{date}/world .
-gsutil cp -r gs://{projectId}.appspot.com/minecraft/world_nether .
-gsutil cp -r gs://{projectId}.appspot.com/minecraft/world_the_end .
+## Architecture
 
 ```
-
-- Remove folder in storage
-
-```script
-gsutil rm gs://{projectId}.appspot.com/{dirName}/**
+┌─────────────────┐     ┌──────────────────┐     ┌─────────────────┐
+│   Netlify       │     │   GCE VM         │     │  Firebase        │
+│   (Frontend)    │────▶│   (mc-server)    │────▶│  (Auth/Store)    │
+│                 │     │                  │     │                  │
+│  /api/vm        │     │  Docker:         │     │  Authentication  │
+│  /api/players   │     │  itzg/minecraft  │     │  Firestore DB    │
+│  /api/backup    │     │  Forge 1.20.1    │     │  Cloud Storage   │
+└─────────────────┘     └──────────────────┘     └─────────────────┘
+        │                       │
+        │  SSH (mc-backup)      │  RCON (port 25575)
+        │  ────────────────▶    │  ◀────────────────
+        │  backup.sh            │  players, server-info
+        └───────────────────────┘
 ```
 
-- Best startup script
+### VM Operations
 
-https://aikar.co/2018/07/02/tuning-the-jvm-g1gc-garbage-collector-flags-for-minecraft/
+| Operation | Method | How |
+|---|---|---|
+| Start / Stop | GCE API | `compute.instances.start/stop` via googleapis |
+| Server status | RCON | TCP connection to port 25575 |
+| Players online | RCON | `rcon-cli list` via Docker |
+| Backup | SSH + RCON | SSH as `mc-backup`, run backup.sh |
+| Modpack install | GCE + SSH | `gcloud compute ssh` + docker exec |
 
-# Notes
+---
 
-terraform? and
-https://docs.google.com/document/d/1TXyzHKqoKMS-jY9FSMrYNLEGathqSG8YuHdj0Z9GP34/edit#heading=h.srqzwwxtrmar
+## JVM Optimization
 
-https://github.com/itzg/docker-minecraft-server
+The Minecraft server runs with these JVM flags for maximum performance:
 
-https://www.geeksforgeeks.org/google-cloud-platform-setting-up-a-game-server/
+```
+-Xmx13G -Xms13G -XX:+UseZGC -XX:+AlwaysPreTouch -XX:+ZProactive -XX:+DisableExplicitGC
+```
+
+| Flag | Effect |
+|---|---|
+| `-Xmx13G -Xms13G` | Fixed heap (no resize overhead) |
+| `-XX:+UseZGC` | Sub-millisecond GC pauses, scales to 16TB |
+| `-XX:+AlwaysPreTouch` | Pre-allocates all heap RAM at startup |
+| `-XX:+ZProactive` | Proactive GC cycles for smoother performance |
+| `-XX:+DisableExplicitGC` | Prevents mods from triggering full GCs |
+
+Set in `/mnt/disks/data/user_jvm_args.txt` and `JVM_OPTS` env var on the container.
+
+---
+
+## Client-Side Mods
+
+When setting up the modpack, remove these mods from the server's `mods/` folder — they are client-only:
+
+BadOptimizations, betterbiomereblend, BetterF3, betterfpsdist, blur-forge, cinematiczoom, CraftPresence, CrashAssistant-forge, createbetterfps, drippyloadingscreen_forge, dynamiccrosshair, Ding, EnhancedVisuals_FORGE, enhanced_boss_bars, entityculling-forge, entity_model_features_forge, entity_texture_features_forge, extrasounds, EuphoriaPatcher, fancymenu, gpumemleakfix, ImmediatelyFast-Forge, ItemPhysicLite_FORGE, make_bubbles_pop, melody_forge, oculus-flywheel-compat-Forge, oculus-mc, particle_core, Perception-FORGE, radium-mc, rubidium-extra, ShoulderSurfing-Forge, simplemenu, skinlayers3d-forge, sodiumdynamiclights-forge, sodiumextras-forge, sodiumoptionsapi-forge, visuality-forge, visual_keybinder, YungsMenuTweaks
+
+---
+
+## Scripts Reference
+
+| Script | Purpose |
+|---|---|
+| `bun run setup` | Full infrastructure setup |
+| `bun run scripts/src/lib/setup/backup_ssh.ts` | Generate/re-generate backup SSH key |
+| `bun run scripts/src/lib/ops/vm-ssh.ts` | SSH into the VM |
+| `bun run scripts/src/lib/ops/vm-ssh.ts -- "command"` | Run command on VM |
+| `bun run scripts/src/lib/ops/vm-setup.ts` | Upload server icon, backup script, config |
+| `bun run scripts/src/lib/ops/vm-restart.ts` | Restart the Docker container |
+
+### Environment Files
+
+- `frontend/.env` — secrets for the Netlify app (Firebase SA, SSH key)
+- `scripts/.env` — secrets for the VM (Minecraft config, modpack URL, SSH key)
+
+Both share the same Firebase service account and backup SSH key.
+
+---
+
+## Manual VM Setup (Alternative)
+
+If you prefer not to use the automated setup, follow the itzg container approach:
+
+```bash
+gcloud compute instances create-with-container mc-server \
+  --zone=europe-west1-b \
+  --machine-type=n2-highmem-2 \
+  --container-image=itzg/minecraft-server:java17-jdk \
+  --container-env-file=scripts/.env \
+  --container-mount-host-path=host-path=/mnt/disks/data,mount-path=/data,mode=rw \
+  --address=STATIC_IP \
+  --tags=minecraft-server
+```
+
+---
+
+## Backup Flow
+
+```
+User clicks "Start Backup Now"
+  → API generates signed GCS upload URL (Firebase Admin SDK)
+  → SSHs as mc-backup@VM_IP
+  → Runs sudo /mnt/disks/data/mc-backup.sh <signed-url>
+    → docker exec rcon-cli save-all
+    → tar -czf world* (11MB)
+    → curl -X PUT to signed GCS URL
+  → Firestore status updated
+  → UI shows success + refreshes backup list
+```
+
+Backups are stored in Firebase Storage at `backup/YYYY-MM-DD_HH:00.tar.gz`.
+
+---
+
+## License
+
+MIT

@@ -33,7 +33,7 @@ const REMOTE_AUTH_KEYS = `/home/${SSH_BACKUP_USER}/.ssh/authorized_keys`;
 // (natively supported by ssh2's Client.connect — no DER/PKCS8 issues).
 
 function generateKeyPair(): { publicKey: string; privateKey: string } {
-  const key = generateKeyPairSync('rsa', { bits: 4096 });
+  const key = generateKeyPairSync('ed25519');
   return {
     publicKey: `${key.public.trim()} ${SSH_KEY_COMMENT}\n`,
     privateKey: key.private,
@@ -169,7 +169,7 @@ export async function setupBackupSsh(dryRun: boolean): Promise<{ checks: Check[]
   }
 
   // 1. Generate key pair
-  console.log(fmt.note('Generating new 4096-bit RSA key pair...'));
+  console.log(fmt.note('Generating new ED25519 key pair...'));
   const { publicKey, privateKey } = generateKeyPair();
 
   // 2. Upload public key to VM
@@ -188,20 +188,23 @@ export async function setupBackupSsh(dryRun: boolean): Promise<{ checks: Check[]
     }
   }
 
-  // 3. Base64-encode and save private key to .env files
-  //    (PEM has newlines which would break .env parsing)
+  // 3. Escape newlines and save private key to .env files
+  //    (PEM has newlines which would break .env parsing; using \\n escapes
+  //     keeps it single-line and is ~40% smaller than base64 encoding)
   if (!dryRun) {
-    const encoded = Buffer.from(privateKey, 'utf-8').toString('base64');
+    const encoded = privateKey.replace(/\n/g, '\\n');
     await writeEnv(FRONTEND_ENV, 'BACKUP_SSH_KEY', encoded);
     await writeEnv(SCRIPTS_ENV, 'BACKUP_SSH_KEY', encoded);
-    console.log(fmt.ok('BACKUP_SSH_KEY saved (base64) to frontend/.env and scripts/.env'));
+    console.log(fmt.ok('BACKUP_SSH_KEY saved (escaped PEM) to frontend/.env and scripts/.env'));
   } else {
     console.log(fmt.fix('Would save BACKUP_SSH_KEY to .env files'));
   }
 
   // 4. Reminder about Netlify
-  console.log(fmt.note('For production, add BACKUP_SSH_KEY as a Netlify secret:'));
-  console.log(fmt.cmd('netlify env:set BACKUP_SSH_KEY <value>'));
+  console.log(fmt.note('For production, add both secrets as Netlify env vars:'));
+  console.log(fmt.note('  ED25519 is small enough (~400 B) to stay under the 4KB Lambda limit.'));
+  console.log(fmt.cmd('netlify env:set BACKUP_SSH_KEY "<value>"'));
+  console.log(fmt.cmd('netlify env:set FIREBASE_SERVICE_ACCOUNT "<value>"'));
 
   checks.push({ name: 'Backup SSH key', status: existingKey ? 'ok' : 'missing', fixed: !existingKey && !dryRun });
   return { checks };

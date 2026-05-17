@@ -8,16 +8,16 @@
 import { Client } from 'ssh2';
 import type { GetSignedUrlResponse } from '@google-cloud/storage';
 import { VM_IP } from '$config';
-import { env } from '$env/dynamic/private';
+import { BACKUP_SSH_KEY } from '$env/static/private';
 import { logger } from '$logger';
 import { setServerStatus } from '$lib/server/firestore';
 import { getApp } from '$lib/server/firebase';
 import { getStorage } from 'firebase-admin/storage';
 
-// BACKUP_SSH_KEY is stored base64-encoded in .env (PEM has newlines
-// which break .env file parsing). Decode it before use.
-const BACKUP_SSH_KEY = env.BACKUP_SSH_KEY
-  ? Buffer.from(env.BACKUP_SSH_KEY, 'base64').toString('utf-8')
+// BACKUP_SSH_KEY is a PEM-encoded private key with literal \n escape sequences
+// for newlines (to keep it single-line in .env). Unescape before use.
+const BACKUP_SSH_KEY_DECODED = BACKUP_SSH_KEY
+  ? BACKUP_SSH_KEY.replace(/\\n/g, '\n')
   : undefined;
 const SSH_USER = 'mc-backup';
 const SSH_PORT = 22;
@@ -100,7 +100,7 @@ async function generateUploadUrl(): Promise<string> {
 export async function runBackup(): Promise<void> {
   logger.info('backup', 'starting backup on VM');
 
-  if (!BACKUP_SSH_KEY) {
+  if (!BACKUP_SSH_KEY_DECODED) {
     throw new Error('BACKUP_SSH_KEY env var not set — run project setup first');
   }
 
@@ -111,7 +111,7 @@ export async function runBackup(): Promise<void> {
     // 2. SSH into the VM and run backup.sh with the signed URL
     //    The script creates the tar and uploads it via curl
     const command = `sudo ${SCRIPT_PATH} '${uploadUrl}'`;
-    const result = await sshExec(VM_IP, SSH_USER, BACKUP_SSH_KEY, command);
+    const result = await sshExec(VM_IP, SSH_USER, BACKUP_SSH_KEY_DECODED!, command);
 
     logger.info('backup', 'backup completed on VM', {
       stdout: result.stdout.slice(0, 500),
