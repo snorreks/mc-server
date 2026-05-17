@@ -8,7 +8,7 @@
 import { Client } from 'ssh2';
 import type { GetSignedUrlResponse } from '@google-cloud/storage';
 import { VM_IP } from '$config';
-import { BACKUP_SSH_KEY } from '$env/static/private';
+import { env } from '$env/dynamic/private';
 import { logger } from '$logger';
 import { setServerStatus } from '$lib/server/firestore';
 import { getApp } from '$lib/server/firebase';
@@ -16,8 +16,8 @@ import { getStorage } from 'firebase-admin/storage';
 
 // BACKUP_SSH_KEY is a PEM-encoded private key with literal \n escape sequences
 // for newlines (to keep it single-line in .env). Unescape before use.
-const BACKUP_SSH_KEY_DECODED = BACKUP_SSH_KEY
-  ? BACKUP_SSH_KEY.replace(/\\n/g, '\n')
+const BACKUP_SSH_KEY_DECODED = env.BACKUP_SSH_KEY
+  ? env.BACKUP_SSH_KEY.replace(/\\n/g, '\n')
   : undefined;
 const SSH_USER = 'mc-backup';
 const SSH_PORT = 22;
