@@ -1,13 +1,14 @@
 <script lang="ts">
     // frontend/src/lib/components/ModpackDialog.svelte
     import { getModpackDownloadURL } from '$lib/client/services/storage.svelte';
+    import { MC_MODPACK_NAME, MC_JVM_OPTS } from '$config';
 
     let { open = $bindable(false) }: { open?: boolean } = $props();
 
     let modpackUrl = $state('');
     let copied = $state(false);
     let copiedJvm = $state(false);
-    const jvmArgs = '-XX:+UseZGC -XX:+AlwaysPreTouch -XX:+ZProactive -XX:+DisableExplicitGC';
+    const jvmArgs = MC_JVM_OPTS;
     let currentStep = $state(1);
 
     $effect(() => {

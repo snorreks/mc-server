@@ -17,16 +17,18 @@ export const MC_DIFFICULTY = 'normal';
 export const MC_MAX_PLAYERS = 20;
 export const MC_VIEW_DISTANCE = 12;
 export const MC_VERSION = '1.20.1';
-export const MC_FORGE_VERSION = '47.4.20';
+export const MC_FORGE_VERSION = '47.4.20'; // Valhelsia 6 uses Forge for 1.20.1
 export const MC_TYPE = 'FORGE';
 export const MC_ALLOW_FLIGHT = true;
 export const MC_MAX_TICK_TIME = -1;
 export const MC_REMOVE_OLD_MODS = false;
 export const MC_EULA = true;
 export const MC_ENABLE_RCON = true;
-export const MC_MODPACK_NAME = 'Beyond Depth';
-export const MC_MODPACK_URL = 'https://www.curseforge.com/minecraft/modpacks/beyond-depth';
+export const MC_MODPACK_NAME = 'Valhelsia 6';
+export const MC_MODPACK_URL = 'https://www.curseforge.com/minecraft/modpacks/valhelsia-6';
 export const MC_MACHINE_TYPE = 'n2-highmem-4';
+export const MC_MODPACK_DOWNLOAD_URL =
+  'https://mediafilez.forgecdn.net/files/6448/190/Valhelsia-6-6.2.3.zip';
 
 // GCP billing
 export const GCP_FREE_TIER_CREDITS = 300;
