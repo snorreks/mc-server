@@ -9,6 +9,11 @@ import { doc, getDoc } from 'firebase/firestore';
 import { getFirebaseAuth, getFirebaseFirestore } from '$lib/client/firebase';
 import { AG_ALLOWED_EMAILS_PATH } from '$config';
 
+// Random OG image for social sharing — picks one on each page load
+const OG_IMAGES = ['4am.webp','angy-cat.webp','ballin.webp','banana.webp','block.webp','cat-model.webp','CAT.webp','cow-doggo.webp','cringe.webp','denial.webp','despair.webp','dog-aoty.jpg','doggy.webp','dogy.webp','dunk.webp','d.webp','fish.webp','folly.webp','gnwoke.webp','goat.webp','horrorbliss.webp','idk.webp','itdogodown.jpg','opsi.webp','pain.webp','perpendicular.webp','prime.webp','pupper.webp','qoute.webp','Redcord.webp','rock.jpg','sauce_no_finder.jpg','second-vice.jpg','situation.webp','ss.webp','therapy.webp','the_worst_vice.webp','thief.webp','thinking.webp','tiger-kill.webp','tom.webp','true_evil.webp','unholy_rizz.webp','unnamedunnamed.webp','where_is_my_mind.webp','whut.webp','wiener.webp','word.jpg','xAR.webp','yeah.jpg'];
+const OG_BASE = 'https://agmcserver.netlify.app/images/';
+let ogImage = $state(OG_IMAGES[Math.floor(Math.random() * OG_IMAGES.length)]);
+
 let { data, children } = $props();
 
 // svelte-ignore state_referenced_locally
@@ -88,6 +93,11 @@ async function handleSignIn() {
   }
 }
 </script>
+
+<svelte:head>
+  <meta property="og:image" content="{OG_BASE + ogImage}" />
+  <meta name="twitter:image" content="{OG_BASE + ogImage}" />
+</svelte:head>
 
 <div class="min-h-screen bg-base-200/50 pb-10" data-theme={currentTheme === 'system' ? undefined : currentTheme}>
     <div class="navbar bg-base-100 shadow-sm px-4 sticky top-0 z-50">

@@ -97,10 +97,10 @@ async function checkServerStatus(user: { uid: string; email: string }) {
   logger.info('vm', `check result: ${status}`);
 }
 
-async function delayShutdown(user: { uid: string; email: string }) {
-  logger.info('vm', `delay requested by ${user.uid} (${user.email})`);
-  await setServerStatus({ skipNextAutoShutdown: true });
-  logger.info('vm', 'delay applied');
+async function delayShutdown(user: { uid: string; email: string }, skip: boolean) {
+  logger.info('vm', `delay set to ${skip} by ${user.uid} (${user.email})`);
+  await setServerStatus({ skipNextAutoShutdown: skip });
+  logger.info('vm', `auto-shutdown ${skip ? 'delayed' : 're-enabled'}`);
 }
 
 // ── Auth Helpers ─────────────────────────────────────────────────────────────
@@ -141,7 +141,8 @@ export const POST: RequestHandler = async (event) => {
         await stopServer(user);
         break;
       case 'delay':
-        await delayShutdown(user);
+        const { skip } = body;
+        await delayShutdown(user, skip === true);
         break;
       case 'backup':
         await runBackup();

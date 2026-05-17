@@ -1,5 +1,5 @@
 // functions/src/controllers/scheduler/daily.ts
-// Daily scheduled function to stop the MC server at 6 AM if no delay was set.
+// Scheduled function to stop the MC server every 6 hours if no delay was set.
 
 import { onSchedule } from '@snorreks/firestack';
 import { cert, getApps, initializeApp } from 'firebase-admin/app';
@@ -102,7 +102,7 @@ export default onSchedule(
     return result;
   },
   {
-    schedule: '0 6 * * *',
+    schedule: '0 */6 * * *',
     timeZone: 'Europe/Oslo',
     memory: '256MiB',
     timeoutSeconds: 120,

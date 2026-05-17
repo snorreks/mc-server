@@ -3,6 +3,7 @@
 import { authStore } from '$lib/client/services/auth.svelte';
 import { status as serverStatus, seedFromSSR, init } from '$lib/client/services/firestore.svelte';
 import BackupsDialog from '$lib/components/BackupsDialog.svelte';
+import CommandConsole from '$lib/components/CommandConsole.svelte';
 import ModpackDialog from '$lib/components/ModpackDialog.svelte';
 import { onMount } from 'svelte';
 import ServerStatus from '$lib/components/ServerStatus.svelte';
@@ -15,6 +16,7 @@ let { data }: PageProps = $props();
 
 let showVideoDialog = $state(false);
 let showBackupsDialog = $state(false);
+let showCommandConsole = $state(false);
 let showModpackDownload = $state(false);
 let loading = $state(false);
 import { get } from 'svelte/store';
@@ -30,19 +32,20 @@ seedFromSSR(data.status);
 
 onMount(() => {
   init();
+  showVideoDialog = false; // Ensure no stale video state on refresh
 });
 
 function spinTheWheel() {
   if (Math.random() < 0.5) showVideoDialog = true;
 }
 
-async function vmAction(type: string) {
+async function vmAction(type: string, skip?: boolean) {
   spinTheWheel();
   loading = true;
   try {
     await fetch('/api/vm', {
       method: 'POST',
-      body: JSON.stringify({ type }),
+      body: JSON.stringify({ type, skip }),
     });
   } catch (e) {
     console.error(type, e);
@@ -57,6 +60,7 @@ async function vmAction(type: string) {
     <ServerStatus
         noop={spinTheWheel}
         onCheck={() => vmAction('check')}
+        onDelay={(skip) => vmAction('delay', skip)}
         loadingCheck={loading}
     />
 
@@ -133,16 +137,24 @@ async function vmAction(type: string) {
         isActive={isAuthActive}
         onStart={() => vmAction('start')}
         onStop={() => vmAction('stop')}
-        onDelay={() => vmAction('delay')}
         onBackup={() => (showBackupsDialog = true)}
+        onCommand={() => (showCommandConsole = true)}
     />
 
     <button onclick={() => (showModpackDownload = true)} class="btn btn-primary w-full gap-2 shadow-lg hover:-translate-y-0.5 transition-transform">
         <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" /></svg>
         Install Modpack
     </button>
+
+    <!-- Always below viewport — forces scroll on all devices -->
+    <div class="h-dvh"></div>
+
+    <button onclick={() => (showVideoDialog = true)} class="btn btn-ghost btn-sm w-full gap-2 text-base-content/40 hover:text-base-content/80 transition-colors">
+        🎬 Show Memes
+    </button>
 </div>
 
 <VideoDialog bind:open={showVideoDialog} />
 <BackupsDialog bind:open={showBackupsDialog} />
+<CommandConsole bind:open={showCommandConsole} />
 <ModpackDialog bind:open={showModpackDownload} />

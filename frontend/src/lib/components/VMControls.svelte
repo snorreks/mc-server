@@ -7,8 +7,8 @@ let {
   isActive = false,
   onStart = () => {},
   onStop = () => {},
-  onDelay = () => {},
   onBackup = () => {},
+  onCommand = () => {},
 } = $props();
 
 let showStopModal = $state(false);
@@ -29,6 +29,10 @@ function confirmStopServer() {
                     💾 Open Backups
                 </button>
 
+                <button onclick={() => onCommand()} disabled={loading} class="btn btn-outline btn-sm h-10 col-span-2">
+                    💻 Console
+                </button>
+
                 {#if !serverIsOn}
                     <button onclick={() => onStart()} disabled={loading} class="btn btn-success btn-sm h-10 col-span-2 text-white">
                         ▶️ Start Server
@@ -36,11 +40,7 @@ function confirmStopServer() {
                 {/if}
 
                 {#if serverIsOn}
-                    <button onclick={() => onDelay()} disabled={loading} class="btn btn-info btn-sm h-10 text-white">
-                        ⏳ Delay Shutdown
-                    </button>
-
-                    <button onclick={() => (showStopModal = true)} disabled={loading} class="btn btn-error btn-sm h-10 text-white">
+                    <button onclick={() => (showStopModal = true)} disabled={loading} class="btn btn-error btn-sm h-10 col-span-2 text-white">
                         ⏹️ Stop Server
                     </button>
                 {/if}

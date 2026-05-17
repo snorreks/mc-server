@@ -5,7 +5,21 @@ import { hasMap, ipAddress, mapHref } from '$lib/constants';
 import { toCalendar } from '$lib/utils/date';
 import PlayersDialog from './PlayersDialog.svelte';
 
-let { noop = () => {}, onCheck = () => {}, loadingCheck = false } = $props();
+let { noop = () => {}, onCheck = () => {}, onDelay = (_skip: boolean) => {}, loadingCheck = false } = $props();
+
+let clickCount = $state(0);
+let clickTimer: ReturnType<typeof setTimeout> | null = null;
+
+function handleCardClick() {
+  clickCount++;
+  if (clickTimer) clearTimeout(clickTimer);
+  if (clickCount >= 3) {
+    clickCount = 0;
+    noop(); // Trigger video dialog
+    return;
+  }
+  clickTimer = setTimeout(() => { clickCount = 0; }, 1000);
+}
 
 let showCopyTooltip = $state(false);
 let showPlayers = $state(false);
@@ -16,6 +30,18 @@ const serverStat = $derived(data?.serverStatus ?? 'UNKNOWN');
 const skipNextAutoShutdown = $derived(data?.skipNextAutoShutdown ?? false);
 const lastChecked = $derived(data?.updatedAt ? toCalendar(data.updatedAt) : undefined);
 const lastOnline = $derived(data?.lastOnline ? toCalendar(data.lastOnline) : undefined);
+
+function getNextShutdownTime(): string {
+  const now = new Date();
+  const hours = now.getHours();
+  // Scheduler runs every 6 hours in Europe/Oslo timezone
+  // Use local time (browser converts from UTC)
+  const next = Math.ceil((hours + 1) / 6) * 6;
+  const nextHour = next <= 23 ? next : 0;
+  const timeStr = nextHour.toString().padStart(2, '0') + ':00';
+  const isTomorrow = next > 23;
+  return isTomorrow ? `tomorrow ${timeStr}` : timeStr;
+}
 
 async function copyIP() {
   try {
@@ -48,9 +74,10 @@ async function copyIP() {
             </button>
         </div>
 
+        <!-- svelte-ignore a11y_click_events_have_key_events a11y_no_static_element_interactions -->
         {#if data}
             {#if serverIsOn}
-                <div class="alert alert-success shadow-sm">
+                <div class="alert alert-success shadow-sm cursor-pointer select-none" onclick={handleCardClick}>
                     <div class="inline-grid *:[grid-area:1/1]">
                         <div class="status status-success animate-ping"></div>
                         <div class="status status-success"></div>
@@ -58,7 +85,7 @@ async function copyIP() {
                     <span>Server is up — <strong>{serverStat}</strong></span>
                 </div>
             {:else}
-                <div class="alert alert-error shadow-sm">
+                <div class="alert alert-error shadow-sm cursor-pointer select-none" onclick={handleCardClick}>
                     <div class="inline-grid *:[grid-area:1/1]">
                         <div class="status status-error"></div>
                     </div>
@@ -80,9 +107,26 @@ async function copyIP() {
                     </div>
                 {/if}
                 {#if serverIsOn}
-                    <div class="flex flex-col">
-                        <span class="opacity-50">Auto shutdown</span>
-                        <span class="font-medium">{skipNextAutoShutdown ? 'Skipped ✓' : '6:00 AM'}</span>
+                    <div class="flex flex-col gap-1.5">
+                        <div class="flex items-center gap-2">
+                            <span class="opacity-50">Auto shutdown</span>
+                            {#if skipNextAutoShutdown}
+                                <button onclick={() => onDelay(false)} class="btn btn-error btn-outline btn-xs gap-1">
+                                    ❌ Cancel Delay
+                                </button>
+                            {:else}
+                                <button onclick={() => onDelay(true)} class="btn btn-ghost btn-xs gap-1 text-base-content/70">
+                                    ⏳ Delay Next
+                                </button>
+                            {/if}
+                        </div>
+                        <span class="font-medium text-xs">
+                            {#if skipNextAutoShutdown}
+                                Skipping next shutdown
+                            {:else}
+                                Every 6 hours (next: {getNextShutdownTime()})
+                            {/if}
+                        </span>
                     </div>
                 {/if}
                 {#if !serverIsOn && lastOnline}
