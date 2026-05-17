@@ -1,19 +1,18 @@
 import {
-  MC_MEMORY,
-  MC_VERSION,
+  GCP_FREE_TIER_CREDITS,
   MC_FORGE_VERSION,
-  MC_TYPE,
+  MC_JVM_OPTS,
+  MC_MACHINE_TYPE,
+  MC_MEMORY,
   MC_MODPACK_NAME,
   MC_MODPACK_URL,
-  MC_MACHINE_TYPE,
-  MC_JVM_OPTS,
-  GCP_FREE_TIER_CREDITS,
-  USD_TO_NOK_RATE,
+  MC_TYPE,
+  MC_VERSION,
   PROJECT_ID,
+  USD_TO_NOK_RATE,
 } from '$config';
 
 export type ServerInfo = {
-  online: number;
   max: number;
   difficulty: string;
   viewDistance: number;
@@ -34,10 +33,9 @@ export type ServerInfo = {
 
 export async function getServerInfo(): Promise<ServerInfo> {
   return {
-    online: 0,
-    max: 20,
-    difficulty: 'normal',
-    viewDistance: 12,
+    max: 30,
+    difficulty: 'hard',
+    viewDistance: 14,
     gamemode: 'survival',
     // Static config
     memory: MC_MEMORY,

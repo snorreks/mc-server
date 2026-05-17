@@ -3,9 +3,9 @@
 // We calculate directly from the VM specs + tracked runtime instead of
 // relying on the Budgets API (which returns 0 due to free trial credits).
 
-import { GCP_FREE_TIER_DAYS, PROJECT_ID, VM_INSTANCE, VM_ZONE } from '$config';
+import { GCP_FREE_TIER_DAYS } from '$config';
 import { logger } from '$logger';
-import { getServerStatus } from '$lib/server/firestore';
+import type { ServerStatusData } from '$config';
 
 export type BillingInfo = {
   spent: number;
@@ -33,14 +33,22 @@ const FREE_TRIAL_LIMIT_USD = 300;
 
 // ── Cost calculation from Firestore runtime ──────────────────────────────────
 
-async function getEstimatedCost(): Promise<BillingInfo> {
-  const status = await getServerStatus();
+/** Safely get milliseconds from Date or Firestore Timestamp */
+function toMs(d: Date | { toMillis?: () => number } | undefined | null): number {
+  if (!d) return 0;
+  if (typeof (d as Date).getTime === 'function') return (d as Date).getTime();
+  if (typeof (d as { toMillis: () => number }).toMillis === 'function') return (d as { toMillis: () => number }).toMillis();
+  return 0;
+}
+
+function getEstimatedCost(status: ServerStatusData | undefined): BillingInfo {
   const serverIsOn = status?.serverIsOn ?? false;
 
   // Calculate remaining free trial days from createdAt
   const createdAt = status?.createdAt;
-  const daysLeft = createdAt
-    ? Math.max(0, GCP_FREE_TIER_DAYS - Math.floor((Date.now() - createdAt.getTime()) / 86400000))
+  const createdAtMs = toMs(createdAt);
+  const daysLeft = createdAtMs > 0
+    ? Math.max(0, GCP_FREE_TIER_DAYS - Math.floor((Date.now() - createdAtMs) / 86400000))
     : GCP_FREE_TIER_DAYS;
 
   // Total runtime = accumulated (from stopped sessions) + current session
@@ -48,7 +56,8 @@ async function getEstimatedCost(): Promise<BillingInfo> {
   let currentSessionMs = 0;
 
   if (serverIsOn && status?.startedAt) {
-    currentSessionMs = Date.now() - status.startedAt.getTime();
+    const startedAtMs = toMs(status.startedAt);
+    if (startedAtMs > 0) currentSessionMs = Date.now() - startedAtMs;
   }
 
   const totalHours = (totalRuntimeMs + currentSessionMs) / 3600000;
@@ -67,8 +76,8 @@ async function getEstimatedCost(): Promise<BillingInfo> {
   });
 
   // Calculate end date
-  const endDate = createdAt
-    ? new Date(createdAt.getTime() + GCP_FREE_TIER_DAYS * 86400000).toISOString().split('T')[0]
+  const endDate = createdAtMs > 0
+    ? new Date(createdAtMs + GCP_FREE_TIER_DAYS * 86400000).toISOString().split('T')[0]
     : undefined;
 
   return {
@@ -83,9 +92,9 @@ async function getEstimatedCost(): Promise<BillingInfo> {
 
 // ── Public API ───────────────────────────────────────────────────────────────
 
-export async function getBillingInfo(): Promise<BillingInfo> {
+export function getBillingInfo(status: ServerStatusData | undefined): BillingInfo {
   try {
-    return await getEstimatedCost();
+    return getEstimatedCost(status);
   } catch (e) {
     logger.error('billing', 'cost estimation failed', e);
     return {

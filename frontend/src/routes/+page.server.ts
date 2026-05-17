@@ -8,9 +8,12 @@ import type { PageServerLoad } from './$types';
 export const load: PageServerLoad = async () => {
   const start = Date.now();
 
-  const [[status, sTime], [billing, bTime], [serverInfo, iTime]] = await Promise.all([
-    time('getServerStatus', getServerStatus()),
-    time('getBillingInfo', getBillingInfo()),
+  // Fetch status first (billing depends on it)
+  const [status, sTime] = await time('getServerStatus', getServerStatus());
+
+  // Then fetch billing (needs status) and server info in parallel
+  const [[billing, bTime], [serverInfo, iTime]] = await Promise.all([
+    time('getBillingInfo', Promise.resolve(getBillingInfo(status))),
     time('getServerInfo', getServerInfo()),
   ]);
 
