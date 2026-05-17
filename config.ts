@@ -12,7 +12,7 @@ export const STATIC_IP_NAME = 'mc-server-ip';
 
 // Minecraft server defaults (can be overridden per project)
 export const MC_MEMORY = '24G';
-export const MC_JVM_OPTS = '-XX:+UseZGC -XX:+AlwaysPreTouch -XX:+ZProactive -XX:+DisableExplicitGC';
+export const MC_JVM_OPTS = '-XX:+UseZGC -XX:+AlwaysPreTouch -XX:+ZProactive -XX:+DisableExplicitGC -XX:+UseStringDeduplication';
 export const MC_DIFFICULTY = 'normal';
 export const MC_MAX_PLAYERS = 20;
 export const MC_VIEW_DISTANCE = 12;

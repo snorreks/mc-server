@@ -1,4 +1,6 @@
-# MC Server — Beyond Depth Modpack
+# MC Server — Valhelsia 6
+
+[![Netlify Status](https://api.netlify.com/api/v1/badges/4fafd6f6-ecce-404f-b972-fc6b2748bd73/deploy-status)](https://app.netlify.com/projects/agmcs/deploys)
 
 A fully automated Minecraft server on GCP, deployed via **Netlify** (frontend) and managed through CLI scripts.
 

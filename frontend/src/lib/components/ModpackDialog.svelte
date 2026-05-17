@@ -94,7 +94,7 @@
                 <p class="text-sm text-base-content/70">Go to Instance <strong>Settings → Java</strong>. Set Max Memory to <strong>8192 MB</strong>, and paste these JVM arguments:</p>
                 <div class="join w-full shadow-sm">
                     <div class="bg-base-200 p-3 rounded-lg font-mono text-xs overflow-x-auto join-item w-full">
-                        <code>-XX:+UseZGC -XX:+AlwaysPreTouch -XX:+ZProactive -XX:+DisableExplicitGC</code>
+                        <code>{jvmArgs}</code>
                     </div>
                     <button onclick={copyJvmArgs} class="btn {copiedJvm ? 'btn-success' : 'btn-neutral'} join-item w-28">
                         {copiedJvm ? '✅ Copied' : '📋 Copy'}
