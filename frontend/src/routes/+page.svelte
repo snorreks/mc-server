@@ -60,7 +60,7 @@ async function vmAction(type: string, skip?: boolean) {
     <ServerStatus
         noop={spinTheWheel}
         onCheck={() => vmAction('check')}
-        onDelay={(skip) => vmAction('delay', skip)}
+        onDelay={(skip: boolean) => vmAction('delay', skip)}
         loadingCheck={loading}
     />
 

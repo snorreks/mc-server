@@ -5,7 +5,12 @@ import { hasMap, ipAddress, mapHref } from '$lib/constants';
 import { toCalendar } from '$lib/utils/date';
 import PlayersDialog from './PlayersDialog.svelte';
 
-let { noop = () => {}, onCheck = () => {}, onDelay = (_skip: boolean) => {}, loadingCheck = false } = $props();
+let {
+  noop = () => {},
+  onCheck = () => {},
+  onDelay = (_s: boolean) => {},
+  loadingCheck = false
+} = $props();
 
 let clickCount = $state(0);
 let clickTimer: ReturnType<typeof setTimeout> | null = null;
