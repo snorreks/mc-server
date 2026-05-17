@@ -33,9 +33,19 @@ export async function verifySessionCookie(
   cookies: import('@sveltejs/kit').Cookies,
   cleanup?: { request: Request; url: URL },
 ): Promise<ServerUser | null> {
-  const sessionCookie = getCookie('__session', { cookies });
-  if (!sessionCookie) {
+  const rawCookie = getCookie('__session', { cookies });
+  if (!rawCookie) {
     return null;
+  }
+
+  // Backward compat: old format stored JSON {session: "<JWT>", ...}
+  // New format stores the JWT directly.
+  let sessionCookie = rawCookie;
+  if (rawCookie.startsWith('{')) {
+    try {
+      const parsed = JSON.parse(rawCookie);
+      if (parsed.session) sessionCookie = parsed.session;
+    } catch { /* not JSON, use raw */ }
   }
 
   try {
