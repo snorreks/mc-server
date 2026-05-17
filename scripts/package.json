@@ -11,8 +11,9 @@
     "check": "echo 'Scripts are type-checked by Biome at root level'"
   },
   "dependencies": {
+    "firebase-admin": "^13.10.0",
     "firebase-tools": "^15.18.0",
-    "firebase-admin": "^13.10.0"
+    "ssh2": "^1.17.0"
   },
   "devDependencies": {
     "@types/node": "^25.8.0"

@@ -5,7 +5,7 @@
 
 import { banner, c, fmt, run } from '../cli_utils';
 import { PROJECT_ID } from '../deployment_config';
-import { setupFirebaseHosting } from './firebase_hosting_setup';
+import { setupBackupSsh } from './backup_ssh';
 import { setupFirewall } from './firewall';
 import { setupGceVm } from './gce_vm';
 import { setupGcpApis } from './gcp_apis';
@@ -116,9 +116,9 @@ async function main() {
     allChecks.push(...checks);
   }
 
-  // ── 6. Firebase Hosting → Cloud Run ────────────────────────────────────
+  // ── 6. Backup SSH key ──────────────────────────────────────────────────
   {
-    const { checks } = await setupFirebaseHosting(PROJECT_ID, DRY_RUN);
+    const { checks } = await setupBackupSsh(DRY_RUN);
     allChecks.push(...checks);
   }
 
@@ -190,8 +190,7 @@ async function main() {
       `   https://console.firebase.google.com/project/${PROJECT_ID}/firestore`,
       '4. Storage → Get started → europe-west1',
       `   https://console.firebase.google.com/project/${PROJECT_ID}/storage`,
-      '5. Hosting → Get started (creates the default site at PROJECT_ID.web.app)',
-      `   https://console.firebase.google.com/project/${PROJECT_ID}/hosting`,
+
       '6. Functions (optional, for scheduler)',
       `   https://console.firebase.google.com/project/${PROJECT_ID}/functions`,
       '7. Project Settings → Service Accounts → Generate new private key',

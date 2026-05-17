@@ -7,6 +7,7 @@ import { PROJECT_ID, VM_INSTANCE, VM_ZONE } from '$config';
 import { FIREBASE_SERVICE_ACCOUNT } from '$env/static/private';
 import { parseServiceAccount } from '$lib/server/firebase';
 import { getServerStatus, setServerStatus } from '$lib/server/firestore';
+import { runBackup } from '$lib/server/backup';
 import { logger } from '$logger';
 import type { RequestHandler } from './$types';
 
@@ -124,6 +125,9 @@ export const POST: RequestHandler = async (event) => {
         break;
       case 'delay':
         await delayShutdown(user);
+        break;
+      case 'backup':
+        await runBackup();
         break;
       default:
         logger.warn('vm', `unknown type: ${type}`);

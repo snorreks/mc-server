@@ -1,48 +1,73 @@
 #!/bin/bash
+# backup.sh — tars Minecraft world directories and uploads to GCS.
+# Usage: bash /mnt/disks/data/mc-backup.sh [upload-url]
+# If no upload-url is provided, just creates the tar in /tmp.
+# With upload-url, it curl-uploads the tar and cleans up.
 
-# Define variables
-BACKUP_DIR="/home/minecraft"
-SCREEN_SESSION="mcs"
-BUCKET_NAME="gs://{projectId}.appspot.com"
+set -euo pipefail
+
+# ── Config ───────────────────────────────────────────────────────────────────
+BACKUP_DIR="/mnt/disks/data"
 DATE=$(date "+%Y-%m-%d_%H:00")
 BUCKET_PATH="backup/$DATE.tar.gz"
 
-echo "Starting backup script at $(date)"
+echo "=== Backup started at $(date) ==="
+echo "Path: ${BUCKET_PATH}"
 
-# Check if the screen session is running
-if screen -list | grep -q "$SCREEN_SESSION"; then
-    echo "Screen session '$SCREEN_SESSION' is running. Saving game state."
-    # Save the game and turn off saving
-    screen -S "$SCREEN_SESSION" -X stuff '/save-all\n'
-    screen -S "$SCREEN_SESSION" -X stuff '/save-off\n'
+# ── Save game state via RCON (inside Docker) ─────────────────────────────────
+CONTAINER=$(docker ps -q --filter 'name=mc' 2>/dev/null || echo '')
+if [ -n "$CONTAINER" ]; then
+  echo "Saving game state via RCON..."
+  docker exec "$CONTAINER" rcon-cli save-all 2>/dev/null || true
+  docker exec "$CONTAINER" rcon-cli save-off 2>/dev/null || true
+  echo "Game saved, auto-save disabled"
 else
-    echo "Screen session '$SCREEN_SESSION' not found. Proceeding with backup without saving game state."
+  echo "No Minecraft container found, proceeding without save"
 fi
 
-# Change to the backup directory
-echo "Changing directory to $BACKUP_DIR"
-cd "$BACKUP_DIR" || { echo "Failed to change directory to $BACKUP_DIR"; exit 1; }
+# ── Tar world directories ────────────────────────────────────────────────────
+cd "$BACKUP_DIR" || { echo "ERROR: ${BACKUP_DIR} not found"; exit 1; }
 
-# Backup all world folders to Google Cloud Storage using tar and streaming to gsutil
-echo "Creating tarball of directories matching $BACKUP_DIR/world*"
-echo "Uploading to $BUCKET_NAME/$BUCKET_PATH"
-tar -czf - world* | /usr/bin/gsutil cp - "$BUCKET_NAME/$BUCKET_PATH"
+echo "Creating tarball of world* directories..."
+tar_file="/tmp/mc-backup-$(date +%s).tar.gz"
+tar -czf "$tar_file" world* 2>/dev/null || {
+  echo "ERROR: No world* directories found"
+  rm -f "$tar_file"
+  exit 1
+}
+echo "Archive: ${tar_file} ($(du -h "$tar_file" | cut -f1))"
 
-if [ $? -eq 0 ]; then
-    echo "Backup successfully uploaded to $BUCKET_NAME/$BUCKET_PATH"
-else
-    echo "Backup failed"
+# ── Upload if URL provided ───────────────────────────────────────────────────
+UPLOAD_URL="${1:-}"
+
+if [ -n "$UPLOAD_URL" ]; then
+  echo "Uploading via signed URL..."
+  HTTP_CODE=$(curl -s -o /tmp/upload-result.json -w "%{http_code}" \
+    -X PUT \
+    -H "Content-Type: application/gzip" \
+    --data-binary @"$tar_file" \
+    "${UPLOAD_URL}")
+  
+  if [ "$HTTP_CODE" -eq 200 ]; then
+    echo "Upload succeeded (HTTP ${HTTP_CODE})"
+  else
+    echo "Upload FAILED (HTTP ${HTTP_CODE})"
+    cat /tmp/upload-result.json 2>/dev/null | python3 -c "import sys,json; print(json.load(sys.stdin).get('error',{}).get('message','unknown'))" 2>/dev/null || true
+    rm -f "$tar_file" /tmp/upload-result.json
     exit 1
-fi
-
-# Check if the screen session is running again to turn saving back on
-if screen -list | grep -q "$SCREEN_SESSION"; then
-    echo "Screen session '$SCREEN_SESSION' is running. Turning saving back on."
-    # Turn saving back on if the screen session is running
-    screen -S "$SCREEN_SESSION" -X stuff '/save-on\n'
+  fi
+  rm -f /tmp/upload-result.json
 else
-    echo "Screen session '$SCREEN_SESSION' not found. Backup completed without turning save back on."
+  echo "No upload URL provided — archive left at ${tar_file}"
 fi
 
-echo "Backup script completed at $(date)"
-echo "Backup location: $GCS_BUCKET/$BACKUP_NAME"
+# ── Cleanup ──────────────────────────────────────────────────────────────────
+rm -f "$tar_file"
+
+# ── Re-enable auto-save ──────────────────────────────────────────────────────
+if [ -n "$CONTAINER" ]; then
+  docker exec "$CONTAINER" rcon-cli save-on 2>/dev/null || true
+  echo "Auto-save re-enabled"
+fi
+
+echo "=== Backup completed at $(date) ==="

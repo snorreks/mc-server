@@ -16,9 +16,21 @@ function parseList(text: string): string[] {
 }
 
 export const GET: RequestHandler = async () => {
+  logger.debug('players', 'fetching online players via RCON');
+
   try {
     const output = await rconCommand('list');
+    logger.debug('players', 'raw RCON output', { raw: output.slice(0, 300) });
+
     const names = parseList(output);
+    logger.debug('players', `parsed ${names.length} names`, { names });
+
+    if (names.length === 0 && output.trim()) {
+      // RCON returned something but we couldn't parse names from it
+      logger.warn('players', 'unexpected RCON output format, returning empty', {
+        raw: output.slice(0, 200),
+      });
+    }
 
     const result = {
       players: names.map((name) => ({
@@ -31,7 +43,14 @@ export const GET: RequestHandler = async () => {
     logger.info('players', `served ${names.length} online`, { names });
     return json(result);
   } catch (e) {
-    logger.error('players', 'rcon failed', e);
+    const msg = e instanceof Error ? e.message : String(e);
+    logger.error('players', `RCON failed: ${msg}`);
+    if (msg.includes('timeout')) {
+      logger.warn('players', 'RCON timeout — server may be starting or off');
+    }
+    if (msg.includes('ECONNREFUSED') || msg.includes('Connection refused')) {
+      logger.warn('players', 'RCON connection refused — server is off or RCON disabled');
+    }
     return json({ players: [], count: 0, error: 'Server unreachable' }, { status: 500 });
   }
 };

@@ -1,7 +1,7 @@
 #!/usr/bin/env bun
 // scripts/src/lib/setup/iam.ts
 //
-// Grant IAM roles to the Cloud Run service account so it can
+// Grant IAM roles to the Firebase Admin service account so it can
 // manage the Minecraft VM (start/stop/check) and read billing info.
 //
 // Usage:  bun run scripts/src/lib/setup/iam.ts [--dry-run]

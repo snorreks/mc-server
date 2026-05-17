@@ -22,7 +22,7 @@ async function loadPlayers() {
   loading = true;
   error = '';
   try {
-    const res = await fetch('/api/players', { method: 'POST' });
+    const res = await fetch('/api/players');
     const data = await res.json();
     players = data.players;
     count = data.count;
