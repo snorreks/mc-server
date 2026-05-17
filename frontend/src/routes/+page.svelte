@@ -9,7 +9,7 @@ import { onMount } from 'svelte';
 import ServerStatus from '$lib/components/ServerStatus.svelte';
 import VMControls from '$lib/components/VMControls.svelte';
 import type { PageProps } from './$types';
-import { PROJECT_ID, USD_TO_NOK_RATE } from '$config';
+import { PROJECT_ID, USD_TO_NOK_RATE, SUPER_ADMIN_EMAIL } from '$config';
 
 let { data }: PageProps = $props();
 
@@ -19,7 +19,8 @@ let showModpackDownload = $state(false);
 let loading = $state(false);
 import { get } from 'svelte/store';
 let isAuthActive = $state(get(authStore).isActive);
-authStore.subscribe(s => { isAuthActive = s.isActive; });
+let authEmail = $state(get(authStore).email);
+authStore.subscribe(s => { isAuthActive = s.isActive; authEmail = s.email; });
 
 
 
@@ -126,6 +127,7 @@ async function vmAction(type: string, skip?: boolean) {
         {loading}
         serverIsOn={serverStatus.serverIsOn}
         isActive={isAuthActive}
+        isSuperAdmin={isAuthActive && authEmail === SUPER_ADMIN_EMAIL}
         onStart={() => vmAction('start')}
         onStop={() => vmAction('stop')}
         onBackup={() => (showBackupsDialog = true)}

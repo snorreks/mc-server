@@ -31,7 +31,7 @@ export const handle: Handle = async ({ event, resolve }) => {
   event.locals.user = user ?? undefined;
 
   // Read theme from cookie store
-  event.locals.theme = getCookie('theme', { cookies: event.cookies }) ?? undefined;
+  event.locals.theme = getCookie('theme', { cookies: event.cookies }) ?? 'dark';
 
   logger.info('hooks', `${method} ${path}`, { uid: user?.uid, theme: event.locals.theme });
 
@@ -70,10 +70,7 @@ export const handle: Handle = async ({ event, resolve }) => {
     response = await resolve(event, {
       transformPageChunk: ({ html }) => {
         const theme = event.locals.theme;
-        if (theme && theme !== 'system') {
-          return html.replace('<html', `<html data-theme="${theme}"`);
-        }
-        return html;
+        return html.replace('<html', `<html data-theme="${theme}"`);
       },
     });
   } catch (e) {

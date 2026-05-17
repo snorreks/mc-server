@@ -27,6 +27,10 @@ export const MC_ENABLE_RCON = true;
 export const MC_MODPACK_NAME = 'Valhelsia 6';
 export const MC_MODPACK_URL = 'https://www.curseforge.com/minecraft/modpacks/valhelsia-6';
 export const MC_MACHINE_TYPE = 'n2-highmem-4';
+
+// Admin
+/** Superadmin email — has access to console and all controls */
+export const SUPER_ADMIN_EMAIL = 'snorristrand@gmail.com';
 export const MC_MODPACK_DOWNLOAD_URL =
   'https://mediafilez.forgecdn.net/files/6448/190/Valhelsia-6-6.2.3.zip';
 

@@ -5,6 +5,7 @@ let {
   loading = false,
   serverIsOn = false,
   isActive = false,
+  isSuperAdmin = false,
   onStart = () => {},
   onStop = () => {},
   onBackup = () => {},
@@ -29,9 +30,11 @@ function confirmStopServer() {
                     💾 Open Backups
                 </button>
 
+                {#if isSuperAdmin}
                 <button onclick={() => onCommand()} disabled={loading} class="btn btn-outline btn-sm h-10 col-span-2">
                     💻 Console
                 </button>
+                {/if}
 
                 {#if !serverIsOn}
                     <button onclick={() => onStart()} disabled={loading} class="btn btn-success btn-sm h-10 col-span-2 text-white">
