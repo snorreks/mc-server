@@ -11,7 +11,7 @@ export const VM_MAP_PORT = 8100;
 export const STATIC_IP_NAME = 'mc-server-ip';
 
 // Minecraft server defaults (can be overridden per project)
-export const MC_MEMORY = '12G';
+export const MC_MEMORY = '24G';
 export const MC_DIFFICULTY = 'normal';
 export const MC_MAX_PLAYERS = 20;
 export const MC_VIEW_DISTANCE = 12;

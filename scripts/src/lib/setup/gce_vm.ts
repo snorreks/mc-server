@@ -8,7 +8,7 @@
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { fmt, gcloud, run } from '../cli_utils';
-import { PROJECT_ID, VM_INSTANCE, VM_ZONE } from '../deployment_config';
+import { MC_MEMORY, PROJECT_ID, VM_INSTANCE, VM_ZONE } from '../deployment_config';
 import type { Check } from './project';
 import { IP_NAME } from './static_ip';
 
@@ -16,7 +16,7 @@ export type { Check };
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const ROOT = resolve(__dirname, '../../../..');
-const MACHINE_TYPE = 'n2-highmem-2'; // 2 vCPU, 16 GB RAM
+const MACHINE_TYPE = 'n2-highmem-4'; // 4 vCPU, 32 GB RAM
 const DATA_DISK_SIZE = '50GB';
 
 async function getStaticIp(): Promise<string | null> {
@@ -115,11 +115,16 @@ export async function setupGceVm(dryRun: boolean): Promise<{ checks: Check[] }> 
 
     console.log(fmt.fix(`Creating VM "${VM_INSTANCE}" with Docker (this takes ~2 min)...`));
 
-    // Build container env string from scripts/.env
-    const envFile = resolve(ROOT, 'scripts/.env');
-    // Write startup script for auto-mounting the data disk on boot
+    // Build container env vars from config and scripts/.env
+    // The startup script runs docker run with proper port publishing
+    // (konlet agent is deprecated and breaks port bindings)
+    const IMAGE = 'itzg/minecraft-server:java17-jdk';
+
     const startupScript = [
       '#!/bin/bash',
+      'set -euo pipefail',
+      '',
+      '# Mount data disk',
       'DISK=/dev/disk/by-id/scsi-0Google_PersistentDisk_data',
       'MNT=/mnt/disks/data',
       'if [ -e "$DISK" ] && ! grep -qs "$MNT" /proc/mounts; then',
@@ -129,38 +134,52 @@ export async function setupGceVm(dryRun: boolean): Promise<{ checks: Check[] }> 
       '  fi',
       '  mount -o discard,defaults "$DISK" "$MNT"',
       'fi',
+      '',
+      '# Remove konlet-created containers (they have no port publishing)',
+      'docker rm -f $(docker ps -a -q --filter "name=klt-") 2>/dev/null || true',
+      '',
+      '# Start Minecraft container with proper port publishing + JVM flags',
+      'docker stop mc-server 2>/dev/null || true',
+      'docker rm mc-server 2>/dev/null || true',
+      `docker run -d --name mc-server --restart=always \\`,
+      '  -p 25575:25575 \\',
+      '  -p 25565:25565 \\',
+      '  -e EULA=TRUE \\',
+      '  -e RCON_PASSWORD=minecraft \\',
+      '  -e ENABLE_RCON=true \\',
+      '  -e TYPE=FORGE \\',
+      '  -e ALLOW_FLIGHT=true \\',
+      '  -e MAX_TICK_TIME=-1 \\',
+      `  -e MEMORY=${MC_MEMORY} \\`,
+      `  -e JVM_OPTS='-XX:+UseZGC -XX:+AlwaysPreTouch -XX:+ZProactive -XX:+DisableExplicitGC' \\`,
+      '  -v /mnt/disks/data:/data \\',
+      `  ${IMAGE}`,
+      '',
+      'echo "Startup script complete: mc-server started with port publishing"',
     ].join('\n');
 
     const startupScriptPath = resolve(ROOT, 'scripts/.local-data/startup-mount-data.sh');
     await Bun.write(startupScriptPath, startupScript);
 
-    const containerArgs = [
+    const createArgs = [
       'gcloud',
       'compute',
       'instances',
-      'create-with-container',
+      'create',
       VM_INSTANCE,
       `--project=${PROJECT_ID}`,
       `--zone=${VM_ZONE}`,
       `--machine-type=${MACHINE_TYPE}`,
-      '--container-image=itzg/minecraft-server:latest',
-      '--container-name=mc',
-      `--container-env-file=${envFile}`,
-      `--container-mount-host-path=host-path=/mnt/disks/data,mount-path=/data,mode=rw`,
-      // Publish RCON (25575) and Minecraft (25565) ports
-      '--container-arg=--publish=25575:25575',
-      '--container-arg=--publish=25565:25565',
       '--tags=minecraft-server',
       `--address=${ip}`,
       '--boot-disk-type=pd-ssd',
       '--boot-disk-size=20GB',
       `--create-disk=name=${dataDiskName},device-name=data,auto-delete=no,mode=rw`,
-      '--container-restart-policy=always',
       `--metadata-from-file=startup-script=${startupScriptPath}`,
       '--quiet',
     ];
 
-    const result = await run(containerArgs);
+    const result = await run(createArgs);
     if (result.code !== 0) {
       console.log(fmt.err(`Failed to create VM: ${result.err}`));
       checks.push({ name: `GCE VM: ${VM_INSTANCE}`, status: 'error', detail: result.err });
