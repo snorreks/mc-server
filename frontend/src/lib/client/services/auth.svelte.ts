@@ -84,9 +84,11 @@ function createAuthStore() {
       const isActive = await checkIsAllowed(email);
       console.log('[auth] checkIsAllowed result', { email, isActive });
 
-      // Sync session cookie whenever auth state changes
-      const token = await user.getIdToken();
-      await syncSessionCookie(token);
+      // Only sync session cookie for approved users
+      if (isActive) {
+        const token = await user.getIdToken();
+        await syncSessionCookie(token);
+      }
 
       patch({
         status: isActive ? 'active' : 'notActive',

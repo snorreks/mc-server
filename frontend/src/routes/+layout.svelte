@@ -61,6 +61,8 @@ const OG_IMAGES = [
 const OG_BASE = 'https://agmcs.netlify.app/images/';
 let ogImage = $state(OG_IMAGES[Math.floor(Math.random() * OG_IMAGES.length)]);
 let showVideo = $state(false);
+let showApprovals = $state(false);
+let pendingEmails = $state<{ email: string; approved: boolean }[]>([]);
 
 let { data, children } = $props();
 
@@ -131,14 +133,42 @@ async function handleSignIn() {
     const allowedEmails = (docSnap.data() ?? {}) as Record<string, boolean>;
 
     if (!allowedEmails[email]) {
+      // Auto-add as pending (false = not yet approved)
+      await fetch('/api/auth/approve', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email, approved: false }),
+      });
       await auth.signOut();
-      throw new Error('Unauthorized. Admin access required.');
+      throw new Error('Your access is pending approval. An admin will review your request.');
     }
   } catch (e: any) {
     if (!e.message.includes('popup-closed')) showError(e.message || 'Sign in failed');
   } finally {
     isAuthenticating = false;
   }
+}
+
+async function loadPendingApprovals() {
+  showApprovals = true;
+  try {
+    const res = await fetch('/api/auth/approve');
+    const data = await res.json();
+    pendingEmails = data.entries ?? [];
+  } catch {
+    pendingEmails = [];
+  }
+}
+
+async function approveEmail(email: string) {
+  await fetch('/api/auth/approve', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ email, approved: true }),
+  });
+  pendingEmails = pendingEmails.map((e) =>
+    e.email === email ? { ...e, approved: true } : e,
+  );
 }
 </script>
 
@@ -184,6 +214,9 @@ async function handleSignIn() {
                     </button>
                     <ul tabindex="-1" class="dropdown-content menu menu-sm bg-base-100 rounded-box z-[1] w-52 p-2 shadow-lg border border-base-200 mt-3">
                         <li class="menu-title px-4 py-2 text-xs opacity-60">{$authStore.email}</li>
+                        {#if $authStore.isActive}
+                            <li><button onclick={loadPendingApprovals} class="text-xs">👥 Pending Approvals</button></li>
+                        {/if}
                         <div class="divider my-0"></div>
                         <li><button class="text-error font-medium" onclick={() => authStore.signOut()}>Sign Out</button></li>
                     </ul>
@@ -214,3 +247,31 @@ async function handleSignIn() {
 {/if}
 
 <VideoDialog bind:open={showVideo} />
+
+<dialog class="modal" class:modal-open={showApprovals}>
+  <div class="modal-box max-w-sm">
+    <div class="flex items-center justify-between mb-4">
+      <h3 class="font-bold text-lg">👥 Pending Approvals</h3>
+      <button class="btn btn-circle btn-ghost btn-sm" onclick={() => (showApprovals = false)}>✕</button>
+    </div>
+    {#if pendingEmails.length === 0}
+      <p class="text-sm text-base-content/60 py-4 text-center">No pending requests</p>
+    {:else}
+      <ul class="space-y-2">
+        {#each pendingEmails as entry}
+          <li class="flex items-center justify-between gap-2">
+            <span class="text-sm truncate">{entry.email}</span>
+            {#if entry.approved}
+              <span class="badge badge-success badge-sm">Approved</span>
+            {:else}
+              <button onclick={() => approveEmail(entry.email)} class="btn btn-primary btn-xs">Approve</button>
+            {/if}
+          </li>
+        {/each}
+      </ul>
+    {/if}
+  </div>
+  <form method="dialog" class="modal-backdrop">
+    <button onclick={() => (showApprovals = false)}>close</button>
+  </form>
+</dialog>
