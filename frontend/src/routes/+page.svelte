@@ -7,14 +7,12 @@ import CommandConsole from '$lib/components/CommandConsole.svelte';
 import ModpackDialog from '$lib/components/ModpackDialog.svelte';
 import { onMount } from 'svelte';
 import ServerStatus from '$lib/components/ServerStatus.svelte';
-import VideoDialog from '$lib/components/VideoDialog.svelte';
 import VMControls from '$lib/components/VMControls.svelte';
 import type { PageProps } from './$types';
 import { PROJECT_ID, USD_TO_NOK_RATE } from '$config';
 
 let { data }: PageProps = $props();
 
-let showVideoDialog = $state(false);
 let showBackupsDialog = $state(false);
 let showCommandConsole = $state(false);
 let showModpackDownload = $state(false);
@@ -32,15 +30,9 @@ seedFromSSR(data.status);
 
 onMount(() => {
   init();
-  showVideoDialog = false; // Ensure no stale video state on refresh
 });
 
-function spinTheWheel() {
-  if (Math.random() < 0.5) showVideoDialog = true;
-}
-
 async function vmAction(type: string, skip?: boolean) {
-  spinTheWheel();
   loading = true;
   try {
     await fetch('/api/vm', {
@@ -58,7 +50,6 @@ async function vmAction(type: string, skip?: boolean) {
 <div class="space-y-6">
 
     <ServerStatus
-        noop={spinTheWheel}
         onCheck={() => vmAction('check')}
         onDelay={(skip: boolean) => vmAction('delay', skip)}
         loadingCheck={loading}
@@ -146,15 +137,7 @@ async function vmAction(type: string, skip?: boolean) {
         Install Modpack
     </button>
 
-    <!-- Always below viewport — forces scroll on all devices -->
-    <div class="h-dvh"></div>
-
-    <button onclick={() => (showVideoDialog = true)} class="btn btn-ghost btn-sm w-full gap-2 text-base-content/40 hover:text-base-content/80 transition-colors">
-        🎬 Show Memes
-    </button>
 </div>
-
-<VideoDialog bind:open={showVideoDialog} />
 <BackupsDialog bind:open={showBackupsDialog} />
 <CommandConsole bind:open={showCommandConsole} />
 <ModpackDialog bind:open={showModpackDownload} />

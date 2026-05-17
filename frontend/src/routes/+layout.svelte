@@ -4,15 +4,31 @@ import '../app.css';
 import { onMount } from 'svelte';
 import { authStore } from '$lib/client/services/auth.svelte';
 import { init as initServerStatus } from '$lib/client/services/firestore.svelte';
+import VideoDialog from '$lib/components/VideoDialog.svelte';
 import { GoogleAuthProvider, signInWithPopup } from 'firebase/auth';
 import { doc, getDoc } from 'firebase/firestore';
 import { getFirebaseAuth, getFirebaseFirestore } from '$lib/client/firebase';
 import { AG_ALLOWED_EMAILS_PATH } from '$config';
 
 // Random OG image for social sharing — picks one on each page load
-const OG_IMAGES = ['4am.webp','angy-cat.webp','ballin.webp','banana.webp','block.webp','cat-model.webp','CAT.webp','cow-doggo.webp','cringe.webp','denial.webp','despair.webp','dog-aoty.jpg','doggy.webp','dogy.webp','dunk.webp','d.webp','fish.webp','folly.webp','gnwoke.webp','goat.webp','horrorbliss.webp','idk.webp','itdogodown.jpg','opsi.webp','pain.webp','perpendicular.webp','prime.webp','pupper.webp','qoute.webp','Redcord.webp','rock.jpg','sauce_no_finder.jpg','second-vice.jpg','situation.webp','ss.webp','therapy.webp','the_worst_vice.webp','thief.webp','thinking.webp','tiger-kill.webp','tom.webp','true_evil.webp','unholy_rizz.webp','unnamedunnamed.webp','where_is_my_mind.webp','whut.webp','wiener.webp','word.jpg','xAR.webp','yeah.jpg'];
+const OG_IMAGES = [
+  'dog-aoty.jpg', 'second-vice.jpg', 'horrorbliss.jpg', 'word.jpg',
+  'pupper.jpg', 'Redcord.jpg', 'doggy.jpg', 'tiger-kill.jpg',
+  'prime.jpg', 'ss.jpg', 'folly.jpg', 'unnamedunnamed.jpg',
+  'cringe.jpg', 'angy-cat.jpg', '4am.jpg', 'yeah.jpg',
+  'whut.jpg', 'dogy.jpg', 'fish.jpg', 'thief.jpg',
+  'xAR.jpg', 'cat-model.jpg', 'thinking.jpg', 'block.jpg',
+  'therapy.jpg', 'banana.jpg', 'perpendicular.jpg', 'dunk.jpg',
+  'true_evil.jpg', 'situation.jpg', 'gnwoke.jpg', 'despair.jpg',
+  'opsi.jpg', 'idk.jpg', 'qoute.jpg', 'where_is_my_mind.jpg',
+  'wiener.jpg', 'rock.jpg', 'itdogodown.jpg', 'denial.jpg',
+  'unholy_rizz.jpg', 'pain.jpg', 'the_worst_vice.jpg', 'tom.jpg',
+  'd.jpg', 'sauce_no_finder.jpg', 'cow-doggo.jpg', 'CAT.jpg',
+  'ballin.jpg', 'goat.jpg',
+];
 const OG_BASE = 'https://agmcserver.netlify.app/images/';
 let ogImage = $state(OG_IMAGES[Math.floor(Math.random() * OG_IMAGES.length)]);
+let showVideo = $state(false);
 
 let { data, children } = $props();
 
@@ -102,7 +118,8 @@ async function handleSignIn() {
 <div class="min-h-screen bg-base-200/50 pb-10" data-theme={currentTheme === 'system' ? undefined : currentTheme}>
     <div class="navbar bg-base-100 shadow-sm px-4 sticky top-0 z-50">
         <div class="flex-1">
-            <span class="text-xl font-black bg-gradient-to-r from-primary to-secondary bg-clip-text text-transparent">AG Server</span>
+            <!-- svelte-ignore a11y_click_events_have_key_events a11y_no_static_element_interactions -->
+            <span onclick={() => (showVideo = true)} class="text-xl font-black bg-gradient-to-r from-primary to-secondary bg-clip-text text-transparent cursor-pointer select-none">AG Server</span>
         </div>
         <div class="flex-none gap-2">
                     <div class="dropdown dropdown-end">
@@ -163,3 +180,5 @@ async function handleSignIn() {
         </div>
     </div>
 {/if}
+
+<VideoDialog bind:open={showVideo} />

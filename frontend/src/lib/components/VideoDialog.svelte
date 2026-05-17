@@ -47,6 +47,10 @@ const allVideos = [
 ];
 
 let dialogEl = $state<HTMLDialogElement>();
+let playerEl = $state<HTMLDivElement>();
+let player: YT.Player | null = $state(null);
+let apiReady = $state(false);
+let initAttempted = $state(false);
 
 function shuffle<T>(arr: T[]): T[] {
   const copy = [...arr];
@@ -57,69 +61,108 @@ function shuffle<T>(arr: T[]): T[] {
   return copy;
 }
 
-// Initialize immediately so the template never sees empty playlist
 let playlist = $state(shuffle(allVideos));
 let currentIndex = $state(0);
-
 let autoPlay = $state(true);
 
-function nextVideo() {
-  if (currentIndex + 1 >= playlist.length) {
-    playlist = shuffle(allVideos);
-    currentIndex = 0;
-  } else {
-    currentIndex++;
-  }
-}
-
-
-// Listen for YouTube iframe events + fallback auto-advance timer
+// Load YouTube IFrame API once
 $effect(() => {
-  if (!open || currentIndex < 0) return;
-
-  // Fallback: auto-advance after 3 min if autoplay is on
-  let autoTimer: ReturnType<typeof setTimeout> | null = null;
-  if (autoPlay) {
-    autoTimer = setTimeout(() => {
-      if (open && autoPlay) nextVideo();
-    }, 180_000);
+  if (typeof window === 'undefined') return;
+  if ((window as any).YT?.Player) {
+    apiReady = true;
+    return;
   }
+  if (document.querySelector('script[src*="iframe_api"]')) return;
 
-  function onMessage(e: MessageEvent) {
-    if (!e.origin || (!e.origin.includes('youtube') && !e.origin.includes('ytimg.com'))) return;
-    try {
-      const raw = typeof e.data === 'string' ? JSON.parse(e.data) : e.data;
-      if (raw?.event === 'onError') {
-        // Video private/deleted/unavailable — always skip
-        if (open) nextVideo();
-      }
-      if (raw?.event === 'onStateChange' && raw.info === 0 && autoPlay && open) {
-        // Video ended — advance (clear the fallback timer too)
-        if (autoTimer) clearTimeout(autoTimer);
-        setTimeout(() => { if (autoPlay && open) nextVideo(); }, 500);
-      }
-    } catch { /* noop */ }
-  }
+  const tag = document.createElement('script');
+  tag.src = 'https://www.youtube.com/iframe_api';
+  const first = document.getElementsByTagName('script')[0];
+  first.parentNode?.insertBefore(tag, first);
 
-  window.addEventListener('message', onMessage);
-  return () => {
-    window.removeEventListener('message', onMessage);
-    if (autoTimer) clearTimeout(autoTimer);
+  (window as any).onYouTubeIframeAPIReady = () => {
+    apiReady = true;
   };
 });
 
-// Re-shuffle each time dialog opens
+// Open dialog + init player when open becomes true
 $effect(() => {
-  if (open && dialogEl) {
-    dialogEl.showModal();
-    playlist = shuffle(allVideos);
-    currentIndex = 0;
-  }
+  if (!open) return;
+  dialogEl?.showModal();
+  playlist = shuffle(allVideos);
+  currentIndex = 0;
+  initAttempted = false;
 });
+
+// Initialize or update player when conditions are met
+$effect(() => {
+  if (!open || !apiReady || !playerEl || currentIndex < 0 || initAttempted) return;
+  initAttempted = true;
+
+  const id = playlist[currentIndex];
+
+  if (player && typeof player.loadVideoById === 'function') {
+    player.loadVideoById(id);
+    return;
+  }
+
+  // Use setTimeout to ensure the DOM is rendered
+  setTimeout(() => {
+    if (!playerEl || !open) return;
+    try {
+      const p = new (window as any).YT.Player(playerEl, {
+        width: '100%',
+        height: 480,
+        videoId: id,
+        playerVars: { autoplay: 1, controls: 1, rel: 0 },
+        events: {
+          onReady: (e: YT.PlayerEvent) => { e.target.playVideo(); },
+          onStateChange: (e: YT.OnStateChangeEvent) => {
+            if (e.data === (window as any).YT.PlayerState.ENDED) {
+              if (autoPlay && open) setTimeout(() => { if (autoPlay && open) nextVideo(); }, 500);
+            }
+          },
+          onError: () => { if (open) nextVideo(); },
+        },
+      });
+      player = p;
+    } catch (e) {
+      console.error('[video] player init failed', e);
+    }
+  }, 100);
+});
+
+function loadVideo(id: string) {
+  if (player && typeof player.loadVideoById === 'function') {
+    player.loadVideoById(id);
+  } else {
+    // Player not ready yet — update index, init re-triggers on next effect
+    const idx = playlist.indexOf(id);
+    if (idx >= 0) currentIndex = idx;
+  }
+}
+
+function nextVideo() {
+  let nextIdx: number;
+  if (currentIndex + 1 >= playlist.length) {
+    playlist = shuffle(allVideos);
+    nextIdx = 0;
+  } else {
+    nextIdx = currentIndex + 1;
+  }
+  currentIndex = nextIdx;
+  initAttempted = false;
+  const id = playlist[nextIdx];
+  if (player && typeof player.loadVideoById === 'function') {
+    player.loadVideoById(id);
+  }
+}
 
 function onDialogClose() {
   open = false;
   currentIndex = -1;
+  if (player && typeof player.stopVideo === 'function') {
+    try { player.stopVideo(); } catch { /* noop */ }
+  }
 }
 </script>
 
@@ -128,19 +171,9 @@ function onDialogClose() {
     <form method="dialog">
       <button class="btn btn-circle btn-ghost btn-sm absolute right-2 top-2 z-10 text-white">✕</button>
     </form>
-    {#key currentIndex}
-      <div class="relative">
+    <div class="relative">
       {#if open && currentIndex >= 0}
-        <iframe
-          width="100%"
-          height="480"
-          title="Random video"
-          src={`https://www.youtube-nocookie.com/embed/${playlist[currentIndex]}?autoplay=1`}
-          frameborder="0"
-          allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-          allowfullscreen
-          class="rounded-box"
-        ></iframe>
+        <div bind:this={playerEl} class="w-full" style="height: 480px"></div>
         <div class="absolute bottom-3 left-1/2 -translate-x-1/2 z-10 flex items-center gap-3">
           <button onclick={nextVideo} class="btn btn-sm btn-ghost text-white/70 hover:text-white bg-black/40 rounded-full px-4">
             ⏭ Next
@@ -154,8 +187,7 @@ function onDialogClose() {
           {currentIndex + 1} / {playlist.length}
         </div>
       {/if}
-      </div>
-    {/key}
+    </div>
   </div>
   <form method="dialog" class="modal-backdrop">
     <button>close</button>

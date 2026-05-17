@@ -6,25 +6,10 @@ import { toCalendar } from '$lib/utils/date';
 import PlayersDialog from './PlayersDialog.svelte';
 
 let {
-  noop = () => {},
   onCheck = () => {},
   onDelay = (_s: boolean) => {},
   loadingCheck = false
 } = $props();
-
-let clickCount = $state(0);
-let clickTimer: ReturnType<typeof setTimeout> | null = null;
-
-function handleCardClick() {
-  clickCount++;
-  if (clickTimer) clearTimeout(clickTimer);
-  if (clickCount >= 3) {
-    clickCount = 0;
-    noop(); // Trigger video dialog
-    return;
-  }
-  clickTimer = setTimeout(() => { clickCount = 0; }, 1000);
-}
 
 let showCopyTooltip = $state(false);
 let showPlayers = $state(false);
@@ -61,7 +46,6 @@ async function copyIP() {
   }
   showCopyTooltip = true;
   setTimeout(() => (showCopyTooltip = false), 2000);
-  noop();
 }
 </script>
 
@@ -82,7 +66,7 @@ async function copyIP() {
         <!-- svelte-ignore a11y_click_events_have_key_events a11y_no_static_element_interactions -->
         {#if data}
             {#if serverIsOn}
-                <div class="alert alert-success shadow-sm cursor-pointer select-none" onclick={handleCardClick}>
+                <div class="alert alert-success shadow-sm">
                     <div class="inline-grid *:[grid-area:1/1]">
                         <div class="status status-success animate-ping"></div>
                         <div class="status status-success"></div>
@@ -90,7 +74,7 @@ async function copyIP() {
                     <span>Server is up — <strong>{serverStat}</strong></span>
                 </div>
             {:else}
-                <div class="alert alert-error shadow-sm cursor-pointer select-none" onclick={handleCardClick}>
+                <div class="alert alert-error shadow-sm">
                     <div class="inline-grid *:[grid-area:1/1]">
                         <div class="status status-error"></div>
                     </div>
