@@ -147,6 +147,9 @@ export async function setupGceVm(dryRun: boolean): Promise<{ checks: Check[] }> 
       '--container-name=mc',
       `--container-env-file=${envFile}`,
       `--container-mount-host-path=host-path=/mnt/disks/data,mount-path=/data,mode=rw`,
+      // Publish RCON (25575) and Minecraft (25565) ports
+      '--container-arg=--publish=25575:25575',
+      '--container-arg=--publish=25565:25565',
       '--tags=minecraft-server',
       `--address=${ip}`,
       '--boot-disk-type=pd-ssd',
