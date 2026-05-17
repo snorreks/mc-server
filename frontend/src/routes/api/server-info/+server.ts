@@ -1,5 +1,6 @@
 import { json } from '@sveltejs/kit';
 import { rconCommand } from '$lib/server/rcon';
+import { getServerInfo } from '$lib/server/server-info';
 import { logger } from '$logger';
 import type { RequestHandler } from './$types';
 
@@ -18,12 +19,11 @@ export const GET: RequestHandler = async () => {
       });
     }
 
+    const base = await getServerInfo();
     const info = {
+      ...base,
       online: playerMatch ? Number(playerMatch[1]) : 0,
       max: playerMatch ? Number(playerMatch[2]) : 20,
-      difficulty: 'normal',
-      viewDistance: 12,
-      gamemode: 'survival',
     };
 
     logger.info('server-info', 'served', info);

@@ -8,7 +8,7 @@
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { fmt, gcloud, run } from '../cli_utils';
-import { MC_MEMORY, PROJECT_ID, VM_INSTANCE, VM_ZONE } from '../deployment_config';
+import { MC_MEMORY, MC_JVM_OPTS, MC_VERSION, MC_FORGE_VERSION, MC_ALLOW_FLIGHT, MC_MAX_TICK_TIME, PROJECT_ID, VM_INSTANCE, VM_ZONE } from '../deployment_config';
 import type { Check } from './project';
 import { IP_NAME } from './static_ip';
 
@@ -156,12 +156,12 @@ export async function setupGceVm(dryRun: boolean): Promise<{ checks: Check[] }> 
       '  -e RCON_PASSWORD=minecraft \\',
       '  -e ENABLE_RCON=true \\',
       '  -e TYPE=FORGE \\',
-      '  -e VERSION=1.20.1 \\',
-      '  -e FORGEVERSION=47.4.20 \\',
-      '  -e ALLOW_FLIGHT=true \\',
-      '  -e MAX_TICK_TIME=-1 \\',
+      `  -e VERSION=${MC_VERSION} \\`,
+      `  -e FORGEVERSION=${MC_FORGE_VERSION} \\`,
+      `  -e ALLOW_FLIGHT=${MC_ALLOW_FLIGHT} \\`,
+      `  -e MAX_TICK_TIME=${MC_MAX_TICK_TIME} \\`,
       `  -e MEMORY=${MC_MEMORY} \\`,
-      `  -e JVM_OPTS='-XX:+UseZGC -XX:+AlwaysPreTouch -XX:+ZProactive -XX:+DisableExplicitGC' \\`,
+      `  -e JVM_OPTS='${MC_JVM_OPTS}' \\`,
       '  -v /mnt/disks/data:/data \\',
       `  ${IMAGE}`,
       '',

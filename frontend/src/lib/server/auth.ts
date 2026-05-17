@@ -44,6 +44,7 @@ export async function verifySessionCookie(
 
     // Primary: read isActive from the custom claim (set at login on subsequent tokens)
     let isActive = (decoded as Record<string, unknown>).isActive === true;
+    console.log('[auth:server] verifySessionCookie — custom claim isActive:', isActive, 'from decoded claims:', JSON.stringify(Object.keys(decoded)));
 
     // Fallback: if the custom claim hasn't propagated yet (first session),
     // check allowed_emails from Firestore directly
@@ -52,10 +53,13 @@ export async function verifySessionCookie(
         const doc = await getFirestore(getApp()).doc(AG_ALLOWED_EMAILS_PATH).get();
         const allowed = doc.data() as Record<string, boolean> | undefined;
         isActive = allowed?.[email] === true;
+        console.log('[auth:server] verifySessionCookie — fallback isActive:', isActive, 'email:', email);
       } catch {
-        // Firestore unavailable
+        console.warn('[auth:server] verifySessionCookie — Firestore fallback failed');
       }
     }
+
+    console.log('[auth:server] verifySessionCookie — final isActive:', isActive, 'for:', email);
 
     return {
       uid: decoded.uid,

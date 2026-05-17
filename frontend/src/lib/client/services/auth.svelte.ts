@@ -20,8 +20,11 @@ async function checkIsAllowed(email: string): Promise<boolean> {
     const db = getFirebaseFirestore();
     const snap = await getDoc(doc(db, AG_ALLOWED_EMAILS_PATH));
     const allowed = (snap.data() ?? {}) as AllowedEmailData;
-    return allowed[email] === true;
-  } catch {
+    const result = allowed[email] === true;
+    console.log('[auth] checkIsAllowed', { email, result, allowedKeys: Object.keys(allowed) });
+    return result;
+  } catch (e) {
+    console.error('[auth] checkIsAllowed error', e);
     return false;
   }
 }
@@ -56,11 +59,22 @@ function createAuthStore() {
   }
 
   let unsub: (() => void) | null = null;
+  let ssrSeeded = false;
 
   function init() {
     if (unsub) return;
+    console.log('[auth] init called, ssrSeeded:', ssrSeeded);
     unsub = onAuthStateChanged(getFirebaseAuth(), async (user) => {
+      console.log('[auth] onAuthStateChanged', { uid: user?.uid, email: user?.email });
+
+      // On the first null callback, skip if SSR already seeded the auth state
+      // to avoid wiping the SSR data before Firebase session restores.
       if (!user) {
+        console.log('[auth] onAuthStateChanged(null), ssrSeeded:', ssrSeeded);
+        if (ssrSeeded) {
+          ssrSeeded = false; // Only skip once — subsequent null = actual sign-out
+          return;
+        }
         await syncSessionCookie(undefined);
         set(initialState);
         return;
@@ -68,6 +82,7 @@ function createAuthStore() {
 
       const email = user.email ?? '';
       const isActive = await checkIsAllowed(email);
+      console.log('[auth] checkIsAllowed result', { email, isActive });
 
       // Sync session cookie whenever auth state changes
       const token = await user.getIdToken();
@@ -82,6 +97,7 @@ function createAuthStore() {
         isSignedIn: true,
         isActive,
       });
+      console.log('[auth] state updated', { isActive, email });
     });
   }
 
@@ -111,7 +127,12 @@ function createAuthStore() {
       isActive: boolean;
     } | null,
   ) {
-    if (!user) return;
+    if (!user) {
+      console.log('[auth] seedFromSSR(null) — no user from SSR');
+      return;
+    }
+    ssrSeeded = true;
+    console.log('[auth] seedFromSSR', { email: user.email, isActive: user.isActive, uid: user.uid });
     patch({
       status: user.isActive ? 'active' : 'notActive',
       uid: user.uid,

@@ -12,13 +12,26 @@ export const STATIC_IP_NAME = 'mc-server-ip';
 
 // Minecraft server defaults (can be overridden per project)
 export const MC_MEMORY = '24G';
+export const MC_JVM_OPTS = '-XX:+UseZGC -XX:+AlwaysPreTouch -XX:+ZProactive -XX:+DisableExplicitGC';
 export const MC_DIFFICULTY = 'normal';
 export const MC_MAX_PLAYERS = 20;
 export const MC_VIEW_DISTANCE = 12;
+export const MC_VERSION = '1.20.1';
+export const MC_FORGE_VERSION = '47.4.20';
+export const MC_TYPE = 'FORGE';
+export const MC_ALLOW_FLIGHT = true;
+export const MC_MAX_TICK_TIME = -1;
+export const MC_REMOVE_OLD_MODS = false;
+export const MC_EULA = true;
+export const MC_ENABLE_RCON = true;
+export const MC_MODPACK_NAME = 'Beyond Depth';
+export const MC_MODPACK_URL = 'https://www.curseforge.com/minecraft/modpacks/beyond-depth';
+export const MC_MACHINE_TYPE = 'n2-highmem-4';
 
 // GCP billing
 export const GCP_FREE_TIER_CREDITS = 300;
 export const GCP_FREE_TIER_DAYS = 90;
+export const USD_TO_NOK_RATE = 9.33;
 
 // ── Firebase Client Config (public — safe to hardcode) ────────────────────
 export const FIREBASE_CONFIG = {
@@ -44,4 +57,10 @@ export type ServerStatusData = {
   lastOnline?: Date;
   skipNextAutoShutdown?: boolean;
   serverIsReady?: boolean;
+  /** When the current session started (set on VM start) */
+  startedAt?: Date;
+  /** Total accumulated runtime in milliseconds across all sessions */
+  totalRuntimeMs?: number;
+  /** When the project/status was first created (free trial start) */
+  createdAt?: Date;
 };

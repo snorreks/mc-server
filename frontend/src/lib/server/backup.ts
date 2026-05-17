@@ -14,10 +14,10 @@ import { setServerStatus } from '$lib/server/firestore';
 import { getApp } from '$lib/server/firebase';
 import { getStorage } from 'firebase-admin/storage';
 
-// BACKUP_SSH_KEY is a PEM-encoded private key with literal \n escape sequences
-// for newlines (to keep it single-line in .env). Unescape before use.
+// BACKUP_SSH_KEY is base64-encoded PEM (single-line, under Netlify Lambda limits).
+// Decode back to PEM before passing to ssh2.
 const BACKUP_SSH_KEY_DECODED = env.BACKUP_SSH_KEY
-  ? env.BACKUP_SSH_KEY.replace(/\\n/g, '\n')
+  ? Buffer.from(env.BACKUP_SSH_KEY, 'base64').toString('utf-8')
   : undefined;
 const SSH_USER = 'mc-backup';
 const SSH_PORT = 22;

@@ -46,6 +46,8 @@ export const setServerStatus = async (data: {
   setLastOnline?: boolean;
   serverStatus?: string | null;
   skipNextAutoShutdown?: boolean;
+  startedAt?: Date | null;
+  totalRuntimeMs?: number;
 }) => {
   const update: Partial<ServerStatusData> = { updatedAt: new Date() };
   if (data.setLastOnline) update.lastOnline = new Date();
@@ -53,6 +55,8 @@ export const setServerStatus = async (data: {
   if (data.serverIsOn !== undefined) update.serverIsOn = data.serverIsOn;
   if (data.skipNextAutoShutdown !== undefined)
     update.skipNextAutoShutdown = data.skipNextAutoShutdown;
+  if (data.startedAt !== undefined) update.startedAt = data.startedAt ?? undefined;
+  if (data.totalRuntimeMs !== undefined) update.totalRuntimeMs = data.totalRuntimeMs;
 
   await getFirestore().doc(AG_STATUS_PATH).set(update, { merge: true });
 };

@@ -60,10 +60,25 @@ async function stopServer() {
     });
 
     const setLastOnline = !!data?.serverIsOn;
+
+    // Calculate runtime for this session
+    const now = Date.now();
+    const prevRuntime = data?.totalRuntimeMs ?? 0;
+    const startedAtVal = data?.startedAt;
+    const startedAtMs = startedAtVal
+      ? typeof startedAtVal === 'object' && 'toMillis' in startedAtVal
+        ? (startedAtVal as unknown as { toMillis: () => number }).toMillis()
+        : (startedAtVal as Date).getTime()
+      : 0;
+    const sessionRuntime = startedAtMs && data?.serverIsOn ? now - startedAtMs : 0;
+    const totalRuntimeMs = prevRuntime + Math.max(0, sessionRuntime);
+
     const updateData: Partial<ServerStatusData> = {
       serverIsOn: false,
       serverStatus: 'STOPPING',
       updatedAt: new Date(),
+      startedAt: undefined,
+      totalRuntimeMs,
     };
     if (setLastOnline) {
       updateData.lastOnline = new Date();
@@ -71,7 +86,7 @@ async function stopServer() {
 
     await db.doc(AG_STATUS_PATH).set(updateData, { merge: true });
 
-    console.log('Server stopped by daily scheduler');
+    console.log(`Server stopped by daily scheduler — session: ${(sessionRuntime / 3600000).toFixed(1)}h, total: ${(totalRuntimeMs / 3600000).toFixed(1)}h`);
     return { stopped: true };
   } catch (e) {
     console.error('Daily scheduler failed', e);

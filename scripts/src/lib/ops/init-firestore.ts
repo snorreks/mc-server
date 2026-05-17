@@ -59,13 +59,15 @@ const statusDoc = await statusRef.get();
 if (statusDoc.exists) {
   console.log(fmt.ok('ag-server/status already exists'));
 } else {
+  const now = new Date();
   await statusRef.set({
     serverIsOn: false,
     serverStatus: 'UNKNOWN',
     skipNextAutoShutdown: false,
-    updatedAt: new Date(),
+    updatedAt: now,
+    createdAt: now,
   } satisfies ServerStatusData);
-  console.log(fmt.ok('ag-server/status created'));
+  console.log(fmt.ok('ag-server/status created with createdAt'));
 }
 
 // ── Allowed emails doc ──────────────────────────────────────────────────────

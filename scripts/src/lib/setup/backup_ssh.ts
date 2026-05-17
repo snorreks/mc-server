@@ -188,14 +188,13 @@ export async function setupBackupSsh(dryRun: boolean): Promise<{ checks: Check[]
     }
   }
 
-  // 3. Escape newlines and save private key to .env files
-  //    (PEM has newlines which would break .env parsing; using \\n escapes
-  //     keeps it single-line and is ~40% smaller than base64 encoding)
+  // 3. Base64-encode and save private key to .env files
+  //    (single-line, compatible with Netlify/AWS Lambda limits)
   if (!dryRun) {
-    const encoded = privateKey.replace(/\n/g, '\\n');
+    const encoded = Buffer.from(privateKey, 'utf-8').toString('base64');
     await writeEnv(FRONTEND_ENV, 'BACKUP_SSH_KEY', encoded);
     await writeEnv(SCRIPTS_ENV, 'BACKUP_SSH_KEY', encoded);
-    console.log(fmt.ok('BACKUP_SSH_KEY saved (escaped PEM) to frontend/.env and scripts/.env'));
+    console.log(fmt.ok('BACKUP_SSH_KEY saved (base64) to frontend/.env and scripts/.env'));
   } else {
     console.log(fmt.fix('Would save BACKUP_SSH_KEY to .env files'));
   }

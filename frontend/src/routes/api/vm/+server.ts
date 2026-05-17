@@ -50,7 +50,11 @@ async function startServer(user: { uid: string; email: string }) {
     ...getInstanceParams(),
     auth: authClient,
   });
-  await setServerStatus({ serverIsOn: true, serverStatus: 'STARTING' });
+  await setServerStatus({
+    serverIsOn: true,
+    serverStatus: 'STARTING',
+    startedAt: new Date(),
+  });
   logger.info('vm', 'start completed');
 }
 
@@ -60,12 +64,25 @@ async function stopServer(user: { uid: string; email: string }) {
   const serverStatus = await getServerStatus();
   const setLastOnline = !!serverStatus?.serverIsOn;
 
+  // Calculate runtime for this session
+  const now = Date.now();
+  const prevRuntime = serverStatus?.totalRuntimeMs ?? 0;
+  const startedAt = serverStatus?.startedAt?.getTime();
+  const sessionRuntime = startedAt && serverStatus?.serverIsOn ? now - startedAt : 0;
+  const totalRuntimeMs = prevRuntime + Math.max(0, sessionRuntime);
+
   await compute.instances.stop({
     ...getInstanceParams(),
     auth: authClient,
   });
-  await setServerStatus({ serverIsOn: false, setLastOnline, serverStatus: 'STOPPING' });
-  logger.info('vm', 'stop completed');
+  await setServerStatus({
+    serverIsOn: false,
+    setLastOnline,
+    serverStatus: 'STOPPING',
+    startedAt: null,
+    totalRuntimeMs,
+  });
+  logger.info('vm', `stop completed — session: ${(sessionRuntime / 3600000).toFixed(1)}h, total: ${(totalRuntimeMs / 3600000).toFixed(1)}h`);
 }
 
 async function checkServerStatus(user: { uid: string; email: string }) {

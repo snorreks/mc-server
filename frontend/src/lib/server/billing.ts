@@ -1,94 +1,98 @@
 // frontend/src/lib/server/billing.ts
-// Real GCP billing info from the Cloud Billing & Budgets APIs.
+// GCP cost estimation for the Minecraft server VM.
+// We calculate directly from the VM specs + tracked runtime instead of
+// relying on the Budgets API (which returns 0 due to free trial credits).
 
-import { google } from 'googleapis';
-import { GCP_FREE_TIER_CREDITS, GCP_FREE_TIER_DAYS, PROJECT_ID } from '$config';
-import { FIREBASE_SERVICE_ACCOUNT } from '$env/static/private';
-import { parseServiceAccount } from '$lib/server/firebase';
+import { GCP_FREE_TIER_DAYS, PROJECT_ID, VM_INSTANCE, VM_ZONE } from '$config';
 import { logger } from '$logger';
+import { getServerStatus } from '$lib/server/firestore';
 
 export type BillingInfo = {
   spent: number;
   limit: number;
   days: number;
-  /** Human-readable label, e.g. "Free credits" or "Budget name" */
+  /** Human-readable label, e.g. "Free Trial" */
   label?: string;
+  /** Currency code */
+  currency?: string;
+  /** Free trial end date (ISO string) */
+  endDate?: string;
 };
 
-// ── Auth ─────────────────────────────────────────────────────────────────────
-// Same pattern as routes/api/vm/+server.ts
+// ── Cost constants (europe-west1, n2-highmem-4) ──────────────────────────────
+// Updated manually if specs change.
+//   n2-highmem-4 (4 vCPU, 32GB): ~$0.65/hr
+//   20GB pd-ssd boot disk:         $3.40/mo
+//   50GB pd-ssd data disk:         $8.50/mo
+//   Static external IP (in-use):   $2.88/mo  (~$0.004/hr)
+const HOURLY_VM_RATE_USD = 0.65;
+const HOURLY_IP_RATE_USD = 0.004;
+const HOURLY_DISK_RATE_USD = (3.40 + 8.50) / 720; // per hour
+const HOURLY_TOTAL = HOURLY_VM_RATE_USD + HOURLY_IP_RATE_USD + HOURLY_DISK_RATE_USD;
+const FREE_TRIAL_LIMIT_USD = 300;
 
-async function getAuthClient() {
-  const scopes = ['https://www.googleapis.com/auth/cloud-platform'];
+// ── Cost calculation from Firestore runtime ──────────────────────────────────
 
-  if (process.env.K_SERVICE) {
-    const auth = new google.auth.GoogleAuth({ scopes });
-    return auth.getClient();
+async function getEstimatedCost(): Promise<BillingInfo> {
+  const status = await getServerStatus();
+  const serverIsOn = status?.serverIsOn ?? false;
+
+  // Calculate remaining free trial days from createdAt
+  const createdAt = status?.createdAt;
+  const daysLeft = createdAt
+    ? Math.max(0, GCP_FREE_TIER_DAYS - Math.floor((Date.now() - createdAt.getTime()) / 86400000))
+    : GCP_FREE_TIER_DAYS;
+
+  // Total runtime = accumulated (from stopped sessions) + current session
+  const totalRuntimeMs = status?.totalRuntimeMs ?? 0;
+  let currentSessionMs = 0;
+
+  if (serverIsOn && status?.startedAt) {
+    currentSessionMs = Date.now() - status.startedAt.getTime();
   }
 
-  const sa = parseServiceAccount(FIREBASE_SERVICE_ACCOUNT) as Record<string, string | undefined>;
-  return new google.auth.JWT({
-    email: sa.client_email ?? '',
-    key: sa.private_key ?? '',
-    scopes,
+  const totalHours = (totalRuntimeMs + currentSessionMs) / 3600000;
+
+  // Current month's runtime (could be from multiple sessions)
+  // Since we track all runtime, this is lifetime. Estimate monthly from 30 days.
+  const cost = totalHours * HOURLY_TOTAL;
+  const spent = Math.round(cost * 100) / 100;
+
+  logger.info('billing', 'estimated cost', {
+    totalHours: totalHours.toFixed(1),
+    currentSession: (currentSessionMs / 3600000).toFixed(1),
+    hourlyRate: HOURLY_TOTAL.toFixed(3),
+    spent: spent.toFixed(2),
+    limit: FREE_TRIAL_LIMIT_USD,
   });
+
+  // Calculate end date
+  const endDate = createdAt
+    ? new Date(createdAt.getTime() + GCP_FREE_TIER_DAYS * 86400000).toISOString().split('T')[0]
+    : undefined;
+
+  return {
+    spent,
+    limit: FREE_TRIAL_LIMIT_USD,
+    days: daysLeft,
+    label: 'Free Trial (estimated)',
+    currency: 'NOK',
+    endDate,
+  };
 }
 
-// ── Billing ──────────────────────────────────────────────────────────────────
+// ── Public API ───────────────────────────────────────────────────────────────
 
 export async function getBillingInfo(): Promise<BillingInfo> {
-  const fallback: BillingInfo = {
-    spent: 0,
-    limit: GCP_FREE_TIER_CREDITS,
-    days: GCP_FREE_TIER_DAYS,
-  };
-
   try {
-    const auth = await getAuthClient();
-
-    // 1. Find the billing account linked to this project
-    const cloudbilling = google.cloudbilling('v1');
-    const projRes = await cloudbilling.projects.getBillingInfo({
-      name: `projects/${PROJECT_ID}`,
-      auth: auth as never,
-    });
-
-    const billingAccountName = projRes.data.billingAccountName;
-    if (!billingAccountName) {
-      logger.info('billing', 'no billing account linked');
-      return fallback;
-    }
-
-    // 2. Look for budgets (spend vs amount data)
-    const budgetRes = await google.billingbudgets('v1').billingAccounts.budgets.list({
-      parent: billingAccountName,
-      auth: auth as never,
-    });
-
-    const budgets = budgetRes.data.budgets;
-    if (budgets && budgets.length > 0) {
-      const budget = budgets[0];
-      const budgetAmount = budget.amount?.specifiedAmount?.units
-        ? Number(budget.amount.specifiedAmount.units)
-        : GCP_FREE_TIER_CREDITS;
-
-      logger.info('billing', 'budget found', {
-        name: budget.displayName,
-        amount: budgetAmount,
-      });
-
-      return {
-        spent: 0, // real-time spend requires BigQuery billing export
-        limit: budgetAmount,
-        days: GCP_FREE_TIER_DAYS,
-        label: budget.displayName ?? undefined,
-      };
-    }
-
-    logger.info('billing', 'no budgets — showing free tier');
-    return { ...fallback, label: 'No budget configured' };
+    return await getEstimatedCost();
   } catch (e) {
-    logger.error('billing', 'API call failed', e);
-    return fallback;
+    logger.error('billing', 'cost estimation failed', e);
+    return {
+      spent: 0,
+      limit: FREE_TRIAL_LIMIT_USD,
+      days: GCP_FREE_TIER_DAYS,
+      currency: 'USD',
+    };
   }
 }
