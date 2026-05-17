@@ -13,12 +13,7 @@ export const POST: RequestHandler = async (event) => {
       return json({ error: 'Theme is required' }, { status: 400 });
     }
 
-    setCookie('theme', theme, {
-      cookies: event.cookies,
-      maxAge: 365 * 24 * 60 * 60,
-      request: event.request,
-      url: event.url,
-    });
+    setCookie('theme', theme, { cookies: event.cookies, maxAge: 365 * 24 * 60 * 60 });
 
     logger.info('theme', `set to "${theme}"`);
     return json({ success: true });

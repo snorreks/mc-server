@@ -90,6 +90,7 @@ export const handle: Handle = async ({ event, resolve }) => {
   // Prevent CDN caching of SSR HTML (contains user-specific avatar/session data)
   if (response.headers.get('content-type')?.startsWith('text/html')) {
     response.headers.set('Cache-Control', 'private, no-store, max-age=0');
+    response.headers.set('Vary', 'Cookie');
   }
 
   return response;

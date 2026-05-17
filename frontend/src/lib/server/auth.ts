@@ -70,7 +70,7 @@ export async function verifySessionCookie(
     };
   } catch {
     if (cleanup) {
-      deleteCookie('__session', { cookies, ...cleanup });
+      deleteCookie('__session', { cookies });
     }
     return null;
   }

@@ -38,7 +38,7 @@ export const POST: RequestHandler = async (event) => {
 
     const sessionCookie = await createSessionCookie(token);
 
-    setCookie('__session', sessionCookie, event);
+    setCookie('__session', sessionCookie, { cookies: event.cookies });
 
     logger.info('session', `cookie created for ${email}`);
     return json({ success: true });
