@@ -86,5 +86,11 @@ export const handle: Handle = async ({ event, resolve }) => {
   }
 
   logger.info('hooks', `${method} ${path} → ${response.status} (${Date.now() - start}ms)`);
+
+  // Prevent CDN caching of SSR HTML (contains user-specific avatar/session data)
+  if (response.headers.get('content-type')?.startsWith('text/html')) {
+    response.headers.set('Cache-Control', 'private, no-store, max-age=0');
+  }
+
   return response;
 };
