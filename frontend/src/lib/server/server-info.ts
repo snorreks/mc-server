@@ -1,5 +1,6 @@
 import {
   GCP_FREE_TIER_CREDITS,
+  MC_DIFFICULTY,
   MC_FORGE_VERSION,
   MC_JVM_OPTS,
   MC_MACHINE_TYPE,
@@ -8,6 +9,7 @@ import {
   MC_MODPACK_URL,
   MC_TYPE,
   MC_VERSION,
+  MC_VIEW_DISTANCE,
   PROJECT_ID,
   USD_TO_NOK_RATE,
 } from '$config';
@@ -34,8 +36,8 @@ export type ServerInfo = {
 export async function getServerInfo(): Promise<ServerInfo> {
   return {
     max: 30,
-    difficulty: 'hard',
-    viewDistance: 14,
+    difficulty: MC_DIFFICULTY,
+    viewDistance: MC_VIEW_DISTANCE,
     gamemode: 'survival',
     // Static config
     memory: MC_MEMORY,

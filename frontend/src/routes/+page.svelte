@@ -2,6 +2,7 @@
 // frontend/src/routes/+page.svelte
 import { authStore } from '$lib/client/services/auth.svelte';
 import { status as serverStatus, seedFromSSR, init } from '$lib/client/services/firestore.svelte';
+import HealthDialog from '$lib/components/HealthDialog.svelte';
 import BackupsDialog from '$lib/components/BackupsDialog.svelte';
 import CommandConsole from '$lib/components/CommandConsole.svelte';
 import ModpackDialog from '$lib/components/ModpackDialog.svelte';
@@ -15,6 +16,7 @@ let { data }: PageProps = $props();
 
 let showBackupsDialog = $state(false);
 let showCommandConsole = $state(false);
+let showHealth = $state(false);
 let showModpackDownload = $state(false);
 let loading = $state(false);
 import { get } from 'svelte/store';
@@ -132,6 +134,7 @@ async function vmAction(type: string, skip?: boolean) {
         onStop={() => vmAction('stop')}
         onBackup={() => (showBackupsDialog = true)}
         onCommand={() => (showCommandConsole = true)}
+        onHealth={() => (showHealth = true)}
     />
 
     <button onclick={() => (showModpackDownload = true)} class="btn btn-primary w-full gap-2 shadow-lg hover:-translate-y-0.5 transition-transform">
@@ -142,4 +145,5 @@ async function vmAction(type: string, skip?: boolean) {
 </div>
 <BackupsDialog bind:open={showBackupsDialog} />
 <CommandConsole bind:open={showCommandConsole} />
+<HealthDialog bind:open={showHealth} />
 <ModpackDialog bind:open={showModpackDownload} />

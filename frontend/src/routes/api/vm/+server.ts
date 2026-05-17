@@ -11,6 +11,14 @@ import { runBackup } from '$lib/server/backup';
 import { logger } from '$logger';
 import type { RequestHandler } from './$types';
 
+/** Firestore Timestamps don't have .getTime() — handle both Date and Timestamp */
+function toMs(d: Date | { toMillis?: () => number } | undefined | null): number {
+  if (!d) return 0;
+  if (typeof (d as Date).getTime === 'function') return (d as Date).getTime();
+  if (typeof (d as { toMillis: () => number }).toMillis === 'function') return (d as { toMillis: () => number }).toMillis();
+  return 0;
+}
+
 type OAuth2Client = InstanceType<typeof google.auth.OAuth2>;
 
 // ── GCE Compute Auth ─────────────────────────────────────────────────────────
@@ -67,8 +75,8 @@ async function stopServer(user: { uid: string; email: string }) {
   // Calculate runtime for this session
   const now = Date.now();
   const prevRuntime = serverStatus?.totalRuntimeMs ?? 0;
-  const startedAt = serverStatus?.startedAt?.getTime();
-  const sessionRuntime = startedAt && serverStatus?.serverIsOn ? now - startedAt : 0;
+  const startedAtMs = toMs(serverStatus?.startedAt);
+  const sessionRuntime = startedAtMs && serverStatus?.serverIsOn ? now - startedAtMs : 0;
   const totalRuntimeMs = prevRuntime + Math.max(0, sessionRuntime);
 
   await compute.instances.stop({
@@ -79,7 +87,6 @@ async function stopServer(user: { uid: string; email: string }) {
     serverIsOn: false,
     setLastOnline,
     serverStatus: 'STOPPING',
-    startedAt: null,
     totalRuntimeMs,
   });
   logger.info('vm', `stop completed — session: ${(sessionRuntime / 3600000).toFixed(1)}h, total: ${(totalRuntimeMs / 3600000).toFixed(1)}h`);

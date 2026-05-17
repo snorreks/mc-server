@@ -10,6 +10,7 @@ let {
   onStop = () => {},
   onBackup = () => {},
   onCommand = () => {},
+  onHealth = () => {},
 } = $props();
 
 let showStopModal = $state(false);
@@ -35,6 +36,10 @@ function confirmStopServer() {
                     💻 Console
                 </button>
                 {/if}
+
+                <button onclick={() => onHealth()} disabled={loading} class="btn btn-outline btn-sm h-10 col-span-2">
+                    🩺 Health
+                </button>
 
                 {#if !serverIsOn}
                     <button onclick={() => onStart()} disabled={loading} class="btn btn-success btn-sm h-10 col-span-2 text-white">

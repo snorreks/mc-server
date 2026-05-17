@@ -77,7 +77,6 @@ async function stopServer() {
       serverIsOn: false,
       serverStatus: 'STOPPING',
       updatedAt: new Date(),
-      startedAt: undefined,
       totalRuntimeMs,
     };
     if (setLastOnline) {
