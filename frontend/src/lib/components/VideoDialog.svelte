@@ -143,22 +143,69 @@ const videoIds = [
   'vBP5y8KQNJc',
 ];
 
+const failedVideoIds = new Set<string>();
 let dialogEl = $state<HTMLDialogElement>();
 let iframeEl = $state<HTMLIFrameElement>();
 let videoId = $state('');
+let isLoadingVideo = $state(false);
 
 $effect(() => {
-  if (iframeEl) {
-    iframeEl.src = open ? `https://www.youtube-nocookie.com/embed/${videoId}?autoplay=1` : '';
+  if (iframeEl && !isLoadingVideo) {
+    iframeEl.src = open && videoId ? `https://www.youtube-nocookie.com/embed/${videoId}?autoplay=1` : '';
   }
 });
 
 $effect(() => {
   if (open && dialogEl) {
-    videoId = videoIds[Math.floor(Math.random() * videoIds.length)];
     dialogEl.showModal();
+    pickWorkingVideo();
   }
 });
+
+async function pickWorkingVideo() {
+  if (isLoadingVideo) return;
+  isLoadingVideo = true;
+  videoId = '';
+
+  const available = videoIds.filter(id => !failedVideoIds.has(id));
+  const candidates = available.length > 0 ? available : videoIds;
+
+  // Shuffle candidates for randomness
+  const shuffled = [...candidates].sort(() => Math.random() - 0.5);
+
+  for (const id of shuffled) {
+    const valid = await checkVideoExists(id);
+    if (valid) {
+      videoId = id;
+      isLoadingVideo = false;
+      return;
+    }
+    failedVideoIds.add(id);
+  }
+
+  // All videos failed — show the last candidate anyway
+  videoId = shuffled[0];
+  isLoadingVideo = false;
+}
+
+async function checkVideoExists(id: string): Promise<boolean> {
+  try {
+    const res = await fetch(
+      `https://www.youtube.com/oembed?url=https://www.youtube.com/watch?v=${id}&format=json`
+    );
+    return res.ok;
+  } catch {
+    // Network/CORS error — optimistically assume video exists
+    return true;
+  }
+}
+
+function onIframeError() {
+  if (videoId) {
+    failedVideoIds.add(videoId);
+    pickWorkingVideo();
+  }
+}
 
 function onDialogClose() {
   open = false;
@@ -170,17 +217,24 @@ function onDialogClose() {
     <form method="dialog">
       <button class="btn btn-circle btn-ghost btn-sm absolute right-2 top-2 z-10 text-white">✕</button>
     </form>
-    <iframe
-      bind:this={iframeEl}
-      width="100%"
-      height="480"
-      title="Random video"
-      src=""
-      frameborder="0"
-      allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-      allowfullscreen
-      class="rounded-box"
-    ></iframe>
+    {#if isLoadingVideo}
+      <div class="flex h-[480px] w-full items-center justify-center rounded-box bg-black/80">
+        <span class="loading loading-spinner loading-lg text-white"></span>
+      </div>
+    {:else}
+      <iframe
+        bind:this={iframeEl}
+        width="100%"
+        height="480"
+        title="Random video"
+        src=""
+        frameborder="0"
+        allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+        allowfullscreen
+        class="rounded-box"
+        onerror={onIframeError}
+      ></iframe>
+    {/if}
   </div>
   <form method="dialog" class="modal-backdrop">
     <button>close</button>
