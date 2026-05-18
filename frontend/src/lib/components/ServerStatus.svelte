@@ -128,7 +128,7 @@ async function copyIP() {
         {/if}
 
         <div class="grid grid-cols-2 gap-2 mt-2">
-            <div class="relative w-full">
+            <div class="relative w-full {serverIsOn ? '' : 'col-span-2'}">
                 <button onclick={copyIP} class="btn btn-outline btn-sm w-full">
                     📋 Copy IP
                 </button>
