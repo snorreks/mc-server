@@ -9,6 +9,10 @@
     "setup:dry": "bun run src/lib/setup/project.ts --dry-run",
     "setup:gce-vm": "bun run src/lib/setup/gce_vm.ts",
     "push-env": "bun run src/lib/setup/push-env.ts",
+    "build-frontend": "bun run src/lib/ops/build-frontend.ts",
+    "deploy-all": "bun run src/lib/ops/deploy-all.ts",
+    "deploy:hosting": "cd ../frontend && ../backend/node_modules/.bin/firebase deploy --config firebase.hosting.json --only hosting --project agmcs2026",
+    "deploy:cloudrun": "bun run src/lib/ops/deploy-all.ts --cloudrun-only",
     "check": "echo 'Scripts are type-checked by Biome at root level'"
   },
   "dependencies": {

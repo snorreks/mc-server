@@ -49,13 +49,112 @@ const allVideos = [
   '2AqqMYpFiu4', '2nrwt3QnYzA', '70vfLYvZG2g', 'lmRYiMA7IM4',
   'h_YlgD55dI4', 'SaaQzgZu09g', 'd8ehWirRtbE', 'Njl9T58gb44',
   'FbcyDq2Tq3s',
+  'HNFdOP9ZQYk',
+  'z_Bc5cR1Nf8',
+  '7JuK2frZLHA',
+  'ufCvJmsXA1g',
+  '87SFKfs2JyU',
+  'oN3ePQfCmRU',
+  'e6JT9uvpnhM',
+  'XzPBX5oTHSs',
+  'q5cpMDNUG_8',
+  'KXTST3ooDdU',
+  'z0uHyKBOp-M',
+  'eCJZPwi-rmE',
+  '6cihoAr-Sn0',
+  'l7LBZG--RI4',
+  'UsKyaZ2o_aU',
+  '-r9i2gIdsaQ',
+  'oJuI4_54oa0',
+  '4gxjNCUmSw8',
+  'CDYSGVfnJVg',
+  'YqQXUa4aRFg',
+  'g0rxKOgYYa4',
+  'R6n16Jj28No',
+  'Zv8E_qfpg7E',
+  'zzd1Bw7A8uM',
+  'ridbXb3ZExo',
+  '93sdX3-RarI',
+  'a1tH4mKitSs',
+  '_CQMs6j3FxE',
+  'k-OaxB5eya4',
+  'JgjoBRqUH_0',
+  '16eEJ-JiymA',
+  'G6LuNhV4j8o',
+  'gfZOvWaXSzs',
+  'vGbjuYmpGmU',
+  't3tdahBOHtA',
+  '2CHSSLp-O1M',
+  'GPzO0n9dbzM',
+  'KEKRpWPxBbs',
+  'SZgxj43iYgE',
+  'yBFDf0rBMWI',
+  'Xo0DXtnr8wU',
+  'gUD4aNln-6I',
+  'mJMpbFdBHsI',
+  'vDjaxGXrb5k',
+  'u49KMKkUoGg',
+  'Y3g2pQ8ZQvg',
+  '2WRXceObtgg',
+  'cqUURUSMrxA',
+  'U8bv1_PcrR8',
+  'juULeau4zgg',
+  'YuYXfQlxU6U',
+  'OOLqCuW7L1U',
+  'f9awrr574iY',
+  'bNT6ZvrlfD0',
+  'wqU1aBBn390',
+  'gmJz5XRYX5k',
+  'mCGOc2FjEBc',
+  'tGMB89g3yf4',
+  'e_dtQPxKhDY',
+  '7NvyJuhxcvQ',
+  '_0tjgJGxJ9I',
+  'VTHm2lVvYi8',
+  'PIga39h0Ud4',
+  '-T1Uwy8ptpo',
+  'NrfbR7y69wc',
+  't2dl56yXiWM',
+  '-vIY1WQQmpo',
+  'PLeFDWoojnE',
+  'dLHyiO3Ap-c',
+  'BGSqoiN6k6A',
+  'EScu_m9L3Bo',
+  'QS5OCwEuc3w',
+  'iKmwrJUpwzE',
+  'zxjXM7lEX_I',
 ];
 
-let dialogEl = $state<HTMLDialogElement>();
-let playerEl = $state<HTMLDivElement>();
-let player: YT.Player | null = $state(null);
-let apiReady = $state(false);
-let initAttempted = $state(false);
+const STORAGE_KEY = 'agmc_watched_videos';
+
+/** All-time watched set (persisted in localStorage) */
+let watchedAllTime = $state<Set<string>>(new Set());
+/** Session-only watched set (resets on page load) */
+const watchedSession = new Set<string>();
+
+function loadWatched(): Set<string> {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY);
+    if (!raw) return new Set();
+    return new Set(JSON.parse(raw));
+  } catch {
+    return new Set();
+  }
+}
+
+function saveWatched() {
+  try {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify([...watchedAllTime]));
+  } catch {
+    // localStorage may be full or unavailable
+  }
+}
+
+function markWatched(id: string) {
+  watchedAllTime.add(id);
+  watchedSession.add(id);
+  saveWatched();
+}
 
 function shuffle<T>(arr: T[]): T[] {
   const copy = [...arr];
@@ -66,9 +165,49 @@ function shuffle<T>(arr: T[]): T[] {
   return copy;
 }
 
-let playlist = $state(shuffle(allVideos));
+/**
+ * Build a playlist ordered by priority:
+ *   1. Videos never watched (not in localStorage)
+ *   2. Videos watched before, but NOT in this session
+ *   3. Videos already watched this session
+ * Each tier is shuffled independently.
+ */
+function buildPlaylist(): string[] {
+  const watched = loadWatched();
+  watchedAllTime = watched;
+
+  const never: string[] = [];
+  const prev: string[] = [];
+  const sess: string[] = [];
+
+  for (const id of allVideos) {
+    if (!watched.has(id)) {
+      never.push(id);
+    } else if (!watchedSession.has(id)) {
+      prev.push(id);
+    } else {
+      sess.push(id);
+    }
+  }
+
+  return [...shuffle(never), ...shuffle(prev), ...shuffle(sess)];
+}
+
+let playlist = $state<string[]>([]);
 let currentIndex = $state(0);
 let autoPlay = $state(true);
+
+// Load watched on mount
+$effect(() => {
+  if (typeof window === 'undefined') return;
+  watchedAllTime = loadWatched();
+});
+
+let dialogEl = $state<HTMLDialogElement>();
+let playerEl = $state<HTMLDivElement>();
+let player: YT.Player | null = $state(null);
+let apiReady = $state(false);
+let initAttempted = $state(false);
 
 // Load YouTube IFrame API once
 $effect(() => {
@@ -93,7 +232,7 @@ $effect(() => {
 $effect(() => {
   if (!open) return;
   dialogEl?.showModal();
-  playlist = shuffle(allVideos);
+  playlist = buildPlaylist();
   currentIndex = 0;
   initAttempted = false;
 });
@@ -123,6 +262,7 @@ $effect(() => {
           onReady: (e: YT.PlayerEvent) => { e.target.playVideo(); },
           onStateChange: (e: YT.OnStateChangeEvent) => {
             if (e.data === (window as any).YT.PlayerState.ENDED) {
+              markWatched(id);
               if (autoPlay && open) setTimeout(() => { if (autoPlay && open) nextVideo(); }, 500);
             }
           },
@@ -147,9 +287,14 @@ function loadVideo(id: string) {
 }
 
 function nextVideo() {
+  // Mark current video as watched (in case onStateChange didn't fire)
+  if (currentIndex >= 0 && currentIndex < playlist.length) {
+    markWatched(playlist[currentIndex]);
+  }
+
   let nextIdx: number;
   if (currentIndex + 1 >= playlist.length) {
-    playlist = shuffle(allVideos);
+    playlist = buildPlaylist();
     nextIdx = 0;
   } else {
     nextIdx = currentIndex + 1;

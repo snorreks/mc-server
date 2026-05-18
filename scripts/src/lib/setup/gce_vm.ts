@@ -146,6 +146,11 @@ export async function setupGceVm(dryRun: boolean): Promise<{ checks: Check[] }> 
       '  chmod 440 /etc/sudoers.d/mc-backup',
       'fi',
       '',
+      '# Ensure backup.sh runs every 4 hours (safety net — app-level backup also exists)',
+      'if [ -f /mnt/disks/data/mc-backup.sh ]; then',
+      '  (crontab -l 2>/dev/null | grep -v mc-backup.sh; echo "0 */4 * * * /usr/bin/sudo -u mc-backup /bin/bash /mnt/disks/data/mc-backup.sh") | crontab -',
+      'fi',
+      '',
       '# Start Minecraft container with proper port publishing + JVM flags',
       'docker stop mc-server 2>/dev/null || true',
       'docker rm mc-server 2>/dev/null || true',
@@ -168,6 +173,30 @@ export async function setupGceVm(dryRun: boolean): Promise<{ checks: Check[] }> 
       'echo "Startup script complete: mc-server started with port publishing"',
     ].join('\n');
 
+    // ── Shutdown script (safety net for CLI stops) ────────────────
+    const shutdownScript = [
+      '#!/bin/bash',
+      'set -euo pipefail',
+      '',
+      '# Gracefully stop Minecraft server before VM shutdown',
+      '# This runs when the VM is stopped via CLI or gcloud compute instances stop',
+      '# (The web app & scheduler use RCON directly — this is a safety net)',
+      '',
+      'CONTAINER=mc-server',
+      'if docker ps -q --filter "name=$CONTAINER" 2>/dev/null | grep -q .; then',
+      '  logger -p user.info "mc-shutdown: saving world..."',
+      '  docker exec $CONTAINER rcon-cli save-all flush 2>/dev/null || true',
+      '  logger -p user.info "mc-shutdown: stopping server..."',
+      '  docker exec $CONTAINER rcon-cli stop 2>/dev/null || true',
+      '  logger -p user.info "mc-shutdown: waiting 15s for flush..."',
+      '  sleep 15',
+      '  logger -p user.info "mc-shutdown: complete"',
+      'fi',
+    ].join('\n');
+
+    const shutdownScriptPath = resolve(ROOT, 'scripts/.local-data/shutdown-script.sh');
+    await Bun.write(shutdownScriptPath, shutdownScript);
+
     const startupScriptPath = resolve(ROOT, 'scripts/.local-data/startup-mount-data.sh');
     await Bun.write(startupScriptPath, startupScript);
 
@@ -186,6 +215,7 @@ export async function setupGceVm(dryRun: boolean): Promise<{ checks: Check[] }> 
       '--boot-disk-size=20GB',
       `--create-disk=name=${dataDiskName},device-name=data,auto-delete=no,mode=rw`,
       `--metadata-from-file=startup-script=${startupScriptPath}`,
+      `--metadata-from-file=shutdown-script=${shutdownScriptPath}`,
       '--quiet',
     ];
 

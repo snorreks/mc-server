@@ -69,14 +69,19 @@ function createAuthStore() {
 
       // On the first null callback, skip if SSR already seeded the auth state
       // to avoid wiping the SSR data before Firebase session restores.
-      if (!user) {
-        console.log('[auth] onAuthStateChanged(null), ssrSeeded:', ssrSeeded);
+      // Also skip partially-initialized user objects (uid is undefined)
+      // which Firebase Auth briefly emits in some browsers before determining
+      // the user is actually signed out.
+      if (!user || !user.uid) {
+        console.log('[auth] onAuthStateChanged(null/partial), ssrSeeded:', ssrSeeded);
         if (ssrSeeded) {
           ssrSeeded = false; // Only skip once — subsequent null = actual sign-out
           return;
         }
-        await syncSessionCookie(undefined);
-        set(initialState);
+        if (!user) {
+          await syncSessionCookie(undefined);
+          set(initialState);
+        }
         return;
       }
 

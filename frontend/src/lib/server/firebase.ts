@@ -50,15 +50,21 @@ export const parseServiceAccount = (serviceAccountString: string): ServiceAccoun
       parsed.client_x509_cert_url = `https://www.googleapis.com/robot/v1/metadata/x509/${encodeURIComponent(parsed.client_email!)}`;
     }
 
-    // 6. Firebase Admin SDK actually *needs* literal newlines in the private key,
+    // 6. Firebase Admin SDK expects privateKey (camelCase), but JSON has private_key (snake_case)
+    if (!parsed.privateKey && parsed.private_key) {
+      parsed.privateKey = parsed.private_key;
+    }
+
+    // 7. Firebase Admin SDK actually *needs* literal newlines in the private key,
     // so we convert them back after parsing the JSON object.
     if (parsed.privateKey) {
       parsed.privateKey = parsed.privateKey.replace(/\\n/g, '\n');
     }
 
+    console.info('[firebase] SA parsed, private_key starts with:', parsed.privateKey?.slice(0, 30));
     return parsed as ServiceAccount;
   } catch (error) {
-    console.error('Invalid FIREBASE_SERVICE_ACCOUNT env:', serviceAccountString);
+    console.error('Invalid FIREBASE_SERVICE_ACCOUNT env:', serviceAccountString?.slice(0, 100));
     throw error;
   }
 };
@@ -71,7 +77,7 @@ const buildAppOptions = (): AppOptions => {
 
   const isRunningOnCloudRun = !!process.env.K_SERVICE;
 
-  const serviceAccountString = isRunningOnCloudRun ? undefined : FIREBASE_SERVICE_ACCOUNT;
+  const serviceAccountString = FIREBASE_SERVICE_ACCOUNT;
   console.info('isRunningOnCloudRun', isRunningOnCloudRun);
 
   // 🚨 THE FIX: Strip leaked GitHub Actions paths so they don't hijack native ADC

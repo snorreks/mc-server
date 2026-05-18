@@ -40,6 +40,7 @@ async function vmAction(type: string, skip?: boolean) {
   try {
     await fetch('/api/vm', {
       method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ type, skip }),
     });
   } catch (e) {

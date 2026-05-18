@@ -1,10 +1,8 @@
 # MC Server — Valhelsia 6
 
-[![Netlify Status](https://api.netlify.com/api/v1/badges/4fafd6f6-ecce-404f-b972-fc6b2748bd73/deploy-status)](https://app.netlify.com/projects/agmcs/deploys)
+A fully automated Minecraft server on GCP, deployed via **Cloud Run** (frontend) and managed through CLI scripts.
 
-A fully automated Minecraft server on GCP, deployed via **Netlify** (frontend) and managed through CLI scripts.
-
-**Live:** https://agmcs.netlify.app/
+**Live:** https://agmcs2026.web.app/
 
 ---
 
@@ -102,7 +100,7 @@ npx netlify deploy --prod
 # Check VM status
 bun run scripts/src/lib/ops/vm-ssh.ts -- "docker ps"
 
-# Start via web UI at https://agmcs.netlify.app/
+# Start via web UI at https://agmcs2026.web.app/
 ```
 
 ---

@@ -43,6 +43,7 @@ async function triggerBackup() {
   try {
     const res = await fetch('/api/vm', {
       method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ type: 'backup' }),
     });
     if (!res.ok) {

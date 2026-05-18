@@ -6,8 +6,14 @@
 //
 // Usage:  bun run scripts/src/lib/setup/iam.ts [--dry-run]
 
+import { readFileSync, existsSync } from 'node:fs';
+import { resolve, dirname } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { c, fmt, run } from '../cli_utils';
 import { PROJECT_ID } from '../deployment_config';
+
+const __dirname = dirname(fileURLToPath(import.meta.url));
+const ROOT = resolve(__dirname, '../../../..');
 
 export type Check = {
   name: string;
@@ -16,7 +22,28 @@ export type Check = {
   fixed?: boolean;
 };
 
-const SA_EMAIL = 'firebase-adminsdk-fbsvc@agmcs2026.iam.gserviceaccount.com';
+function getSaEmail(): string {
+  const envPath = resolve(ROOT, 'frontend/.env');
+  if (!existsSync(envPath)) {
+    console.warn(fmt.warn('.env not found, falling back to default SA email'));
+    return 'firebase-adminsdk-fbsvc@agmcs2026.iam.gserviceaccount.com';
+  }
+  const envContent = readFileSync(envPath, 'utf-8');
+  const match = envContent.match(/^FIREBASE_SERVICE_ACCOUNT=(.+)$/m);
+  if (!match) {
+    console.warn(fmt.warn('FIREBASE_SERVICE_ACCOUNT not found in .env, falling back to default'));
+    return 'firebase-adminsdk-fbsvc@agmcs2026.iam.gserviceaccount.com';
+  }
+  try {
+    const parsed = JSON.parse(match[1]);
+    return parsed.client_email ?? 'firebase-adminsdk-fbsvc@agmcs2026.iam.gserviceaccount.com';
+  } catch {
+    console.warn(fmt.warn('Failed to parse FIREBASE_SERVICE_ACCOUNT, falling back to default'));
+    return 'firebase-adminsdk-fbsvc@agmcs2026.iam.gserviceaccount.com';
+  }
+}
+
+const SA_EMAIL = getSaEmail();
 
 // Project-level roles (applied via projects.add-iam-policy-binding)
 const PROJECT_ROLES = ['roles/compute.instanceAdmin.v1'];

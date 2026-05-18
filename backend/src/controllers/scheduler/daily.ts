@@ -52,6 +52,10 @@ async function stopServer() {
       return { skipped: true };
     }
 
+    // Graceful Minecraft shutdown: save-all → stop → wait
+    const { gracefulStopMc } = await import('../../lib/graceful-stop');
+    await gracefulStopMc();
+
     const instanceParams = { zone: vmZone, instance: vmInstance, project: projectId };
 
     await compute.instances.stop({

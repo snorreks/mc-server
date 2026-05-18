@@ -199,11 +199,11 @@ export async function setupBackupSsh(dryRun: boolean): Promise<{ checks: Check[]
     console.log(fmt.fix('Would save BACKUP_SSH_KEY to .env files'));
   }
 
-  // 4. Reminder about Netlify
-  console.log(fmt.note('For production, add both secrets as Netlify env vars:'));
-  console.log(fmt.note('  ED25519 is small enough (~400 B) to stay under the 4KB Lambda limit.'));
-  console.log(fmt.cmd('netlify env:set BACKUP_SSH_KEY "<value>"'));
-  console.log(fmt.cmd('netlify env:set FIREBASE_SERVICE_ACCOUNT "<value>"'));
+  // 4. Reminder about Firebase Hosting env vars
+  console.log(fmt.note('For production, push secrets as Firebase Hosting env vars:'));
+  console.log(fmt.note('  ED25519 is small enough (~400 B) to stay under limits.'));
+  console.log(fmt.cmd('bun run scripts/src/lib/setup/push-env.ts'));
+  console.log(fmt.cmd('Then deploy: firebase deploy --only hosting'));
 
   checks.push({ name: 'Backup SSH key', status: existingKey ? 'ok' : 'missing', fixed: !existingKey && !dryRun });
   return { checks };

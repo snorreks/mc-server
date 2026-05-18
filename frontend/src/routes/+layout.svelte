@@ -58,7 +58,7 @@ const OG_IMAGES = [
   'xAR.jpg',
   'yeah.jpg',
 ];
-const OG_BASE = 'https://agmcs.netlify.app/images/';
+const OG_BASE = 'https://agmcs2026.web.app/images/';
 let ogImage = $state(OG_IMAGES[Math.floor(Math.random() * OG_IMAGES.length)]);
 let showVideo = $state(false);
 let showApprovals = $state(false);
@@ -166,9 +166,7 @@ async function approveEmail(email: string) {
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ email, approved: true }),
   });
-  pendingEmails = pendingEmails.map((e) =>
-    e.email === email ? { ...e, approved: true } : e,
-  );
+  pendingEmails = pendingEmails.map((e) => (e.email === email ? { ...e, approved: true } : e));
 }
 </script>
 

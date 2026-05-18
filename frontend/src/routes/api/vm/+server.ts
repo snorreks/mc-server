@@ -8,6 +8,8 @@ import { FIREBASE_SERVICE_ACCOUNT } from '$env/static/private';
 import { parseServiceAccount } from '$lib/server/firebase';
 import { getServerStatus, setServerStatus } from '$lib/server/firestore';
 import { runBackup } from '$lib/server/backup';
+import { gracefulStopMc } from '$lib/server/graceful-stop';
+import { rconCommand } from '$lib/server/rcon';
 import { logger } from '$logger';
 import type { RequestHandler } from './$types';
 
@@ -22,19 +24,12 @@ function toMs(d: Date | { toMillis?: () => number } | undefined | null): number 
 type OAuth2Client = InstanceType<typeof google.auth.OAuth2>;
 
 // ── GCE Compute Auth ─────────────────────────────────────────────────────────
-// On Cloud Run: use the runtime service account via ADC
-// Local: use the Firebase Admin SA key (same pattern as firebase.ts)
+// Uses the Firebase Admin SA for Compute API calls (works on Cloud Run and local).
+// The default compute SA likely doesn't have Compute Instance Admin permissions.
 
 async function getComputeClient(): Promise<OAuth2Client> {
   const scopes = ['https://www.googleapis.com/auth/cloud-platform'];
 
-  if (process.env.K_SERVICE) {
-    // Cloud Run — ADC picks up the runtime service account
-    const auth = new google.auth.GoogleAuth({ scopes });
-    return (await auth.getClient()) as OAuth2Client;
-  }
-
-  // Local dev — use the Firebase SA key directly
   const sa = parseServiceAccount(FIREBASE_SERVICE_ACCOUNT) as Record<string, string | undefined>;
   return new google.auth.JWT({
     email: sa.client_email ?? '',
@@ -64,15 +59,23 @@ async function startServer(user: { uid: string; email: string }) {
     startedAt: new Date(),
   });
   logger.info('vm', 'start completed');
+  // Background poll: wait for MC server to finish loading mods
+  waitForMcServer(user).catch((e) =>
+    logger.error('vm', 'background poll failed', { error: String(e) }),
+  );
 }
 
 async function stopServer(user: { uid: string; email: string }) {
   logger.info('vm', `stop requested by ${user.uid} (${user.email})`);
+
+  // Step 1-2: save-all + stop via RCON, wait for shutdown
+  await gracefulStopMc();
+
+  // Step 3: Stop the GCE instance
   const authClient = await getComputeClient();
   const serverStatus = await getServerStatus();
   const setLastOnline = !!serverStatus?.serverIsOn;
 
-  // Calculate runtime for this session
   const now = Date.now();
   const prevRuntime = serverStatus?.totalRuntimeMs ?? 0;
   const startedAtMs = toMs(serverStatus?.startedAt);
@@ -92,6 +95,16 @@ async function stopServer(user: { uid: string; email: string }) {
   logger.info('vm', `stop completed — session: ${(sessionRuntime / 3600000).toFixed(1)}h, total: ${(totalRuntimeMs / 3600000).toFixed(1)}h`);
 }
 
+/** Probe RCON — if it responds, the Minecraft server is fully loaded */
+async function isMcServerReady(): Promise<boolean> {
+  try {
+    await rconCommand('list');
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 async function checkServerStatus(user: { uid: string; email: string }) {
   logger.info('vm', `check requested by ${user.uid} (${user.email})`);
   const authClient = await getComputeClient();
@@ -99,9 +112,38 @@ async function checkServerStatus(user: { uid: string; email: string }) {
     ...getInstanceParams(),
     auth: authClient,
   })) as unknown as { data: { status?: string | null } };
-  const status = vm.data.status ?? 'UNKNOWN';
-  await setServerStatus({ serverIsOn: status === 'RUNNING', serverStatus: status });
-  logger.info('vm', `check result: ${status}`);
+  const gceStatus = vm.data.status ?? 'UNKNOWN';
+
+  if (gceStatus === 'RUNNING') {
+    // VM is up — now check if the Minecraft server process is actually ready
+    const ready = await isMcServerReady();
+    const serverStatus = ready ? 'RUNNING' : 'STARTING';
+    await setServerStatus({ serverIsOn: true, serverStatus });
+    logger.info('vm', `check result: GCE=${gceStatus}, MC=${serverStatus}`);
+  } else {
+    await setServerStatus({ serverIsOn: false, serverStatus: gceStatus });
+    logger.info('vm', `check result: ${gceStatus}`);
+  }
+}
+
+/**
+ * After issuing a VM start, poll the Minecraft server until RCON responds,
+ * then update Firestore status to RUNNING.
+ */
+async function waitForMcServer(user: { uid: string; email: string }) {
+  logger.info('vm', `background poll: waiting for MC server (${user.uid})`);
+  const maxAttempts = 20; // 20 × 15s = 5 min max
+  for (let i = 0; i < maxAttempts; i++) {
+    await new Promise((resolve) => setTimeout(resolve, 15_000));
+    const ready = await isMcServerReady();
+    if (ready) {
+      logger.info('vm', `background poll: MC server ready after ~${(i + 1) * 15}s`);
+      await setServerStatus({ serverStatus: 'RUNNING' });
+      return;
+    }
+    logger.info('vm', `background poll: attempt ${i + 1}/${maxAttempts} — not ready yet`);
+  }
+  logger.warn('vm', `background poll: MC server did not become ready within ${maxAttempts * 15}s`);
 }
 
 async function delayShutdown(user: { uid: string; email: string }, skip: boolean) {
@@ -163,7 +205,12 @@ export const POST: RequestHandler = async (event) => {
     return json({ success: true });
   } catch (e) {
     const message = e instanceof Error ? e.message : 'Internal Server Error';
-    logger.error('vm', `POST failed`, { error: message });
-    return json({ error: message }, { status: message === 'Unauthorized' ? 401 : 500 });
+    const code = (e as any)?.code ?? (e as any)?.status ?? null;
+    const stack = e instanceof Error ? e.stack : '';
+    logger.error('vm', `POST failed`, { error: message, code, stack: stack?.slice(0, 500) });
+    console.error('[vm] POST failed:', e instanceof Error ? e : String(e));
+    // Return proper error: if the error has a known status code, use it
+    const status = message === 'Unauthorized' ? 401 : code === 403 ? 403 : 500;
+    return json({ error: message, code }, { status });
   }
 };

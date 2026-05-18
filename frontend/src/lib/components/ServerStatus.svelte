@@ -65,7 +65,15 @@ async function copyIP() {
 
         <!-- svelte-ignore a11y_click_events_have_key_events a11y_no_static_element_interactions -->
         {#if data}
-            {#if serverIsOn}
+            {#if serverIsOn && serverStat === 'STARTING'}
+                <div class="alert alert-warning shadow-sm">
+                    <div class="inline-grid *:[grid-area:1/1]">
+                        <div class="status status-warning animate-ping"></div>
+                        <div class="status status-warning"></div>
+                    </div>
+                    <span>Starting up… loading mods (<strong>{serverStat}</strong>)</span>
+                </div>
+            {:else if serverIsOn}
                 <div class="alert alert-success shadow-sm">
                     <div class="inline-grid *:[grid-area:1/1]">
                         <div class="status status-success animate-ping"></div>

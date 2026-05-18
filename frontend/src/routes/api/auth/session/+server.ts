@@ -1,6 +1,6 @@
 import { json } from '@sveltejs/kit';
 import { createSessionCookie, getAuth, verifyIdToken } from '$lib/server/auth';
-import { setCookie } from '$lib/server/cookies';
+import { deleteCookie, setCookie } from '$lib/server/cookies';
 import { allowedEmails } from '$lib/server/firestore';
 import { logger } from '$logger';
 import type { RequestHandler } from './$types';
@@ -12,8 +12,11 @@ export const POST: RequestHandler = async (event) => {
 
     if (!token || typeof token !== 'string') {
       logger.warn('session', 'POST missing token');
+      console.error('[session] token type:', typeof token, 'value:', JSON.stringify(token).slice(0, 100));
       return json({ error: 'Token is required' }, { status: 400 });
     }
+
+    console.log('[session] token received, length:', token.length, 'first 50 chars:', token.slice(0, 50));
 
     // Decode the ID token to get the user's email
     const decoded = await verifyIdToken(token);
@@ -43,13 +46,15 @@ export const POST: RequestHandler = async (event) => {
     logger.info('session', `cookie created for ${email}`);
     return json({ success: true });
   } catch (e) {
-    logger.error('session', 'POST failed', e);
+    const errMsg = e instanceof Error ? e.stack || e.message : String(e);
+    logger.error('session', 'POST failed');
+    console.error('[session] POST error details:', errMsg, (e as any)?.errorInfo || '');
     return json({ error: 'Invalid token' }, { status: 401 });
   }
 };
 
 export const DELETE: RequestHandler = async (event) => {
-  event.cookies.delete('__session', { path: '/' });
+  deleteCookie('__session', { cookies: event.cookies });
   logger.info('session', 'cookie deleted');
   return json({ success: true });
 };

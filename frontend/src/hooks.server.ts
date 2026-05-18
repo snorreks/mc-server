@@ -35,34 +35,6 @@ export const handle: Handle = async ({ event, resolve }) => {
 
   logger.info('hooks', `${method} ${path}`, { uid: user?.uid, theme: event.locals.theme });
 
-  // For API routes, ensure CORS
-  if (event.url.pathname.startsWith('/api/')) {
-    if (event.request.method === 'OPTIONS') {
-      return new Response(null, {
-        headers: {
-          'Access-Control-Allow-Origin': '*',
-          'Access-Control-Allow-Methods': 'POST, OPTIONS',
-          'Access-Control-Allow-Headers': 'Content-Type, Authorization',
-        },
-      });
-    }
-
-    try {
-      const response = await resolve(event);
-      response.headers.set('Access-Control-Allow-Origin', '*');
-      response.headers.set('Access-Control-Allow-Methods', 'POST, OPTIONS');
-      response.headers.set('Access-Control-Allow-Headers', 'Content-Type, Authorization');
-      return response;
-    } catch (e) {
-      logger.error(
-        'hooks',
-        `${method} ${path} — API error`,
-        e instanceof Error ? e.message : String(e),
-      );
-      return new Response('Internal Server Error', { status: 500 });
-    }
-  }
-
   // Inject data-theme into <html> for page routes
   // Skip for 'system' — client-side JS resolves prefers-color-scheme
   let response;
