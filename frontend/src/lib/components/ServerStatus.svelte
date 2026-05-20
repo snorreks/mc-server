@@ -5,11 +5,7 @@ import { hasMap, ipAddress, mapHref } from '$lib/constants';
 import { toCalendar } from '$lib/utils/date';
 import PlayersDialog from './PlayersDialog.svelte';
 
-let {
-  onCheck = () => {},
-  onDelay = (_s: boolean) => {},
-  loadingCheck = false
-} = $props();
+let { onCheck = () => {}, onDelay = (_s: boolean) => {}, loadingCheck = false } = $props();
 
 let showCopyTooltip = $state(false);
 let showPlayers = $state(false);
@@ -24,8 +20,6 @@ const lastOnline = $derived(data?.lastOnline ? toCalendar(data.lastOnline) : und
 function getNextShutdownTime(): string {
   const now = new Date();
   const hours = now.getHours();
-  // Scheduler runs every 6 hours in Europe/Oslo timezone
-  // Use local time (browser converts from UTC)
   const next = Math.ceil((hours + 1) / 6) * 6;
   const nextHour = next <= 23 ? next : 0;
   const timeStr = nextHour.toString().padStart(2, '0') + ':00';
@@ -49,12 +43,12 @@ async function copyIP() {
 }
 </script>
 
-<div class="card bg-base-100 shadow-sm border border-base-200">
-    <div class="card-body p-4 space-y-4">
+<div class="card bg-base-100 border border-base-300 shadow-sm">
+    <div class="card-body p-5 space-y-4">
 
         <div class="flex justify-between items-center">
-            <h2 class="card-title text-sm opacity-60 uppercase tracking-wider">Server Status</h2>
-            <button onclick={() => onCheck()} disabled={loadingCheck} class="btn btn-ghost btn-xs">
+            <h2 class="text-xs font-bold uppercase tracking-wider text-base-content/50">Server Status</h2>
+            <button onclick={() => onCheck()} disabled={loadingCheck} class="btn btn-ghost btn-xs gap-1.5 font-medium">
                 {#if loadingCheck}
                     <span class="loading loading-spinner loading-xs"></span>
                 {:else}
@@ -63,98 +57,99 @@ async function copyIP() {
             </button>
         </div>
 
-        <!-- svelte-ignore a11y_click_events_have_key_events a11y_no_static_element_interactions -->
         {#if data}
             {#if serverIsOn && serverStat === 'STARTING'}
-                <div class="alert alert-warning shadow-sm">
-                    <div class="inline-grid *:[grid-area:1/1]">
-                        <div class="status status-warning animate-ping"></div>
-                        <div class="status status-warning"></div>
-                    </div>
-                    <span>Starting up… loading mods (<strong>{serverStat}</strong>)</span>
+                <div class="alert alert-warning items-center gap-3 rounded-xl bg-warning text-warning-content font-medium text-sm shadow-xs">
+                    <span class="relative flex h-2 w-2">
+                        <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-current opacity-75"></span>
+                        <span class="relative inline-flex rounded-full h-2 w-2 bg-current"></span>
+                    </span>
+                    <span>Starting up… loading mods (<span class="font-mono font-bold text-xs">{serverStat}</span>)</span>
                 </div>
             {:else if serverIsOn}
-                <div class="alert alert-success shadow-sm">
-                    <div class="inline-grid *:[grid-area:1/1]">
-                        <div class="status status-success animate-ping"></div>
-                        <div class="status status-success"></div>
-                    </div>
-                    <span>Server is up — <strong>{serverStat}</strong></span>
+                <div class="alert alert-success items-center gap-3 rounded-xl bg-success text-success-content font-medium text-sm shadow-xs">
+                    <span class="relative flex h-2 w-2">
+                        <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-current opacity-75"></span>
+                        <span class="relative inline-flex rounded-full h-2 w-2 bg-current"></span>
+                    </span>
+                    <span>Server is up — <span class="font-mono font-bold text-xs">{serverStat}</span></span>
                 </div>
             {:else}
-                <div class="alert alert-error shadow-sm">
-                    <div class="inline-grid *:[grid-area:1/1]">
-                        <div class="status status-error"></div>
-                    </div>
-                    <span>Server is down — <strong>{serverStat}</strong></span>
+                <div class="alert alert-error items-center gap-3 rounded-xl bg-error text-error-content font-medium text-sm shadow-xs">
+                    <span class="relative flex h-2 w-2">
+                        <span class="relative inline-flex rounded-full h-2 w-2 bg-current"></span>
+                    </span>
+                    <span>Server is down — <span class="font-mono font-bold text-xs">{serverStat}</span></span>
                 </div>
             {/if}
         {:else}
             <div class="flex justify-center py-4">
-                <span class="loading loading-spinner loading-md"></span>
+                <span class="loading loading-spinner loading-md text-primary"></span>
             </div>
         {/if}
 
         {#if data}
-            <div class="flex flex-wrap gap-x-6 gap-y-2 text-xs">
+            <div class="grid grid-cols-2 gap-4 border-t border-b border-base-200 py-3 text-xs">
                 {#if lastChecked}
-                    <div class="flex flex-col">
-                        <span class="opacity-50">Last checked</span>
-                        <span class="font-medium">{lastChecked}</span>
+                    <div class="flex flex-col gap-0.5">
+                        <span class="text-base-content/40 font-medium">Last checked</span>
+                        <span class="font-semibold text-base-content/80">{lastChecked}</span>
                     </div>
                 {/if}
+
                 {#if serverIsOn}
-                    <div class="flex flex-col gap-1.5">
-                        <div class="flex items-center gap-2">
-                            <span class="opacity-50">Auto shutdown</span>
+                    <div class="flex flex-col gap-0.5">
+                        <div class="flex items-center gap-1.5">
+                            <span class="text-base-content/40 font-medium">Auto shutdown</span>
                             {#if skipNextAutoShutdown}
-                                <button onclick={() => onDelay(false)} class="btn btn-error btn-outline btn-xs gap-1">
+                                <button onclick={() => onDelay(false)} class="badge badge-error gap-1 text-[10px] font-bold cursor-pointer hover:opacity-80 transition-opacity">
                                     ❌ Cancel Delay
                                 </button>
                             {:else}
-                                <button onclick={() => onDelay(true)} class="btn btn-ghost btn-xs gap-1 text-base-content/70">
+                                <button onclick={() => onDelay(true)} class="badge badge-ghost border-base-300 gap-1 text-[10px] font-medium cursor-pointer hover:bg-base-200 transition-colors">
                                     ⏳ Delay Next
                                 </button>
                             {/if}
                         </div>
-                        <span class="font-medium text-xs">
+                        <span class="font-semibold text-base-content/80">
                             {#if skipNextAutoShutdown}
                                 Skipping next shutdown
                             {:else}
-                                Every 6 hours (next: {getNextShutdownTime()})
+                                Every 6 hours ({getNextShutdownTime()})
                             {/if}
                         </span>
                     </div>
                 {/if}
+
                 {#if !serverIsOn && lastOnline}
-                    <div class="flex flex-col">
-                        <span class="opacity-50">Last online</span>
-                        <span class="font-medium">{lastOnline}</span>
+                    <div class="flex flex-col gap-0.5">
+                        <span class="text-base-content/40 font-medium">Last online</span>
+                        <span class="font-semibold text-base-content/80">{lastOnline}</span>
                     </div>
                 {/if}
             </div>
         {/if}
 
-        <div class="grid grid-cols-2 gap-2 mt-2">
-            <div class="relative w-full {serverIsOn ? '' : 'col-span-2'}">
-                <button onclick={copyIP} class="btn btn-outline btn-sm w-full">
+        <div class="flex flex-col sm:flex-row gap-2 pt-1">
+            <div class="relative flex-1">
+                <button onclick={copyIP} class="btn btn-neutral btn-sm w-full gap-1.5 font-medium">
                     📋 Copy IP
                 </button>
                 {#if showCopyTooltip}
-                    <span class="absolute -top-8 left-1/2 -translate-x-1/2 rounded bg-base-300 px-2 py-1 text-xs shadow z-10">Copied!</span>
+                    <span class="absolute -top-9 left-1/2 -translate-x-1/2 rounded-md bg-neutral text-neutral-content px-2.5 py-1 text-xs font-medium shadow-md z-10 animate-fade-in">Copied!</span>
                 {/if}
             </div>
 
             {#if serverIsOn}
-                <button onclick={() => (showPlayers = true)} class="btn btn-outline btn-sm w-full">
-                    👥 Online
+                <button onclick={() => (showPlayers = true)} class="btn btn-outline btn-sm flex-1 gap-1.5 font-medium">
+                    👥 Online Players
                 </button>
             {/if}
 
             {#if hasMap && mapHref}
                 <a href={mapHref} target="_blank" rel="noopener noreferrer"
-                   class="btn btn-info btn-sm w-full text-white {serverIsOn ? '' : 'btn-disabled'} col-span-2">
-                    🗺️ View Live Map
+                   class="btn btn-info btn-sm text-white font-medium sm:col-span-2 {serverIsOn ? '' : 'btn-disabled'}">
+                    🗺️ Live Map ↗
                 </a>
             {/if}
         </div>

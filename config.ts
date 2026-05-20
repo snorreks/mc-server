@@ -11,7 +11,7 @@ export const VM_MAP_PORT = 8100;
 export const STATIC_IP_NAME = 'mc-server-ip';
 
 // Minecraft server defaults (can be overridden per project)
-export const MC_MEMORY = '24G';
+export const MC_MEMORY = '12G';
 export const MC_JVM_OPTS = '-XX:+UseZGC -XX:+AlwaysPreTouch -XX:+ZProactive -XX:+DisableExplicitGC -XX:+UseStringDeduplication';
 export const MC_DIFFICULTY = 'hard';
 export const MC_MAX_PLAYERS = 20;
@@ -26,7 +26,7 @@ export const MC_EULA = true;
 export const MC_ENABLE_RCON = true;
 export const MC_MODPACK_NAME = 'Valhelsia 6';
 export const MC_MODPACK_URL = 'https://www.curseforge.com/minecraft/modpacks/valhelsia-6';
-export const MC_MACHINE_TYPE = 'n2-highmem-4';
+export const MC_MACHINE_TYPE = 'c3-standard-4';
 
 // Admin
 /** Superadmin email — has access to console and all controls */

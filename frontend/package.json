@@ -8,8 +8,6 @@
     "preview": "vite preview",
     "prepare": "svelte-kit sync || echo ''",
     "check": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json",
-    "deploy:hosting": "../backend/node_modules/.bin/firebase deploy --config firebase.hosting.json --only hosting --project agmcs2026",
-    "deploy:frontend": "../backend/node_modules/.bin/firebase deploy --config firebase.hosting.json --only hosting --project agmcs2026",
     "lint": "biome lint .",
     "format": "biome format .",
     "fix": "biome check --write ."

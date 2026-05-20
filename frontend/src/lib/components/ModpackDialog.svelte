@@ -69,6 +69,11 @@
             <div class="space-y-4 animate-fade-in">
                 <h4 class="font-bold text-lg">1. Get Prism Launcher</h4>
                 <p class="text-sm text-base-content/70">We highly recommend Prism Launcher for easy modpack installation.</p>
+                <div class="alert alert-warning text-sm">
+                    <span>⚠️</span>
+                    <span><strong>Java 17 is required.</strong> Forge 1.20.1 does not work with Java 21+.
+                    <a href="https://adoptium.net/temurin/releases/?version=17" target="_blank" rel="noopener noreferrer" class="link link-accent">Download Java 17</a></span>
+                </div>
                 <a href="https://prismlauncher.org/download" target="_blank" rel="noopener noreferrer" class="btn btn-primary w-full">
                     Download Prism Launcher
                 </a>
@@ -91,7 +96,7 @@
         {#if currentStep === 3}
             <div class="space-y-4 animate-fade-in">
                 <h4 class="font-bold text-lg">3. Boost Performance</h4>
-                <p class="text-sm text-base-content/70">Go to Instance <strong>Settings → Java</strong>. Set Max Memory to <strong>8192 MB</strong>, and paste these JVM arguments:</p>
+                <p class="text-sm text-base-content/70">Go to Instance <strong>Settings → Java</strong> and make sure <strong>Java 17</strong> is selected as the Java runtime. Set Max Memory to <strong>8192 MB</strong>, and paste these JVM arguments:</p>
                 <div class="join w-full shadow-sm">
                     <div class="bg-base-200 p-3 rounded-lg font-mono text-xs overflow-x-auto join-item w-full">
                         <code>{jvmArgs}</code>
@@ -100,6 +105,8 @@
                         {copiedJvm ? '✅ Copied' : '📋 Copy'}
                     </button>
                 </div>
+                <div class="divider text-xs text-base-content/40">Graphics</div>
+                <p class="text-sm text-base-content/70">In-game, go to <strong>Options → Video Settings → Shader Packs</strong> and pick one if your PC can handle it (ComplementaryShaders, BSL, or AstraLex are great with this modpack).</p>
                 <p class="text-sm font-bold text-success mt-2">You're ready! Launch the instance and play.</p>
             </div>
         {/if}

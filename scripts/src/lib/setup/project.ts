@@ -3,9 +3,12 @@
 // One-time infrastructure setup for the MC Server.
 // Runs all steps in dependency order.
 
+import { existsSync } from 'node:fs';
+import { resolve } from 'node:path';
 import { banner, c, fmt, run } from '../cli_utils';
 import { PROJECT_ID } from '../deployment_config';
 import { setupBackupSsh } from './backup_ssh';
+import { setupEnv } from './env';
 import { setupFirewall } from './firewall';
 import { setupGceVm } from './gce_vm';
 import { setupGcpApis } from './gcp_apis';
@@ -70,6 +73,12 @@ async function main() {
   const allChecks: Check[] = [];
   const allManualSteps: ManualStep[] = [];
 
+  // ── Env files ──────────────────────────────────────────────────────────
+  {
+    const { checks } = await setupEnv(DRY_RUN);
+    allChecks.push(...checks);
+  }
+
   // ── 1. GCP APIs ──────────────────────────────────────────────────────────
   {
     const { checks } = await setupGcpApis(PROJECT_ID, DRY_RUN);
@@ -122,6 +131,22 @@ async function main() {
     allChecks.push(...checks);
   }
 
+  // ── 7. Firebase Hosting config ───────────────────────────────────────────
+  {
+    const hostingPath = resolve(process.cwd(), '../frontend/firebase.hosting.local.json');
+    if (!existsSync(hostingPath)) {
+      console.log(fmt.section('Firebase Hosting Config'));
+      const { code } = await run(['bun', 'run', 'src/lib/setup/firebase-hosting.ts']);
+      if (code === 0) {
+        allChecks.push({ name: 'Firebase Hosting config', status: 'ok' });
+      } else {
+        allChecks.push({ name: 'Firebase Hosting config', status: 'error' });
+      }
+    } else {
+      allChecks.push({ name: 'Firebase Hosting config', status: 'ok', detail: 'Already exists' });
+    }
+  }
+
   // ── Billing check ─────────────────────────────────────────────────────────
   console.log(fmt.section('Billing'));
   const { out: billingOut } = await run([
@@ -163,20 +188,10 @@ async function main() {
       '   -- Credit card for verification only, no charges',
       '   -- You get $300 credits for 90 days',
       `3. Create project "${PROJECT_ID}": https://console.cloud.google.com/projectcreate`,
-      '4. Invite snorre@mailvideo.com as Owner:',
+      '4. Add the Google account you are logged into your laptop with as Owner:',
       `   https://console.cloud.google.com/iam-admin/iam?project=${PROJECT_ID}`,
-      '   → Click "Grant Access" → snorre@mailvideo.com → Role: Owner',
+      '   → Click "Grant Access" → your-email@gmail.com → Role: Owner',
       '5. Run this setup script again to provision everything',
-    ].join('\n'),
-  });
-
-  allManualSteps.push({
-    title: 'Get Firebase config + set up .env files',
-    detail: [
-      `1. Open Firebase Console: https://console.firebase.google.com/project/${PROJECT_ID}`,
-      '2. Project Settings → General → Web App → copy firebaseConfig',
-      '3. Run: bun run scripts/src/lib/setup/env.ts',
-      '   Paste the config + service account JSON when prompted',
     ].join('\n'),
   });
 
@@ -190,12 +205,11 @@ async function main() {
       `   https://console.firebase.google.com/project/${PROJECT_ID}/firestore`,
       '4. Storage → Get started → europe-west1',
       `   https://console.firebase.google.com/project/${PROJECT_ID}/storage`,
-
-      '6. Functions (optional, for scheduler)',
+      '5. Functions (optional, for scheduler)',
       `   https://console.firebase.google.com/project/${PROJECT_ID}/functions`,
-      '7. Project Settings → Service Accounts → Generate new private key',
+      '6. Project Settings → Service Accounts → Generate new private key',
       `   https://console.firebase.google.com/project/${PROJECT_ID}/settings/serviceaccounts/adminsdk`,
-      '   Paste the JSON into scripts/.env as FIREBASE_SERVICE_ACCOUNT',
+      '   Re-run setup to paste it when prompted (FIREBASE_SERVICE_ACCOUNT)',
     ].join('\n'),
   });
 

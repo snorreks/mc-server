@@ -11,7 +11,7 @@
     "push-env": "bun run src/lib/setup/push-env.ts",
     "build-frontend": "bun run src/lib/ops/build-frontend.ts",
     "deploy-all": "bun run src/lib/ops/deploy-all.ts",
-    "deploy:hosting": "cd ../frontend && ../backend/node_modules/.bin/firebase deploy --config firebase.hosting.json --only hosting --project agmcs2026",
+    "deploy:hosting": "cd ../frontend && (test -f firebase.hosting.local.json && CONFIG=firebase.hosting.local.json || CONFIG=firebase.hosting.json) && ../backend/node_modules/.bin/firebase deploy --config $CONFIG --only hosting --project agmcs2026",
     "deploy:cloudrun": "bun run src/lib/ops/deploy-all.ts --cloudrun-only",
     "check": "echo 'Scripts are type-checked by Biome at root level'"
   },

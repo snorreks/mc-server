@@ -31,11 +31,13 @@ async function checkIsAllowed(email: string): Promise<boolean> {
 
 async function syncSessionCookie(token?: string) {
   try {
-    await fetch('/api/auth/session', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ token: token ?? null }),
-    });
+    const method = token ? 'POST' : 'DELETE';
+    const opts: RequestInit = {
+      method,
+      headers: token ? { 'Content-Type': 'application/json' } : undefined,
+    };
+    if (token) opts.body = JSON.stringify({ token });
+    await fetch('/api/auth/session', opts);
   } catch {
     /* ignore */
   }

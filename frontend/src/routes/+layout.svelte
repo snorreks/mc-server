@@ -70,6 +70,7 @@ let { data, children } = $props();
 let currentTheme = $state(data.theme ?? 'system');
 let isAuthenticating = $state(false);
 let toastError = $state('');
+let themeDropdownOpen = $state(false);
 
 // svelte-ignore state_referenced_locally
 authStore.seedFromSSR(data.user);
@@ -82,6 +83,19 @@ const THEMES = [
   { value: 'retro', label: 'Retro', icon: '📟' },
   { value: 'aqua', label: 'Aqua', icon: '💧' },
   { value: 'valentine', label: 'Valentine', icon: '💕' },
+  { value: 'synthwave', label: 'Synthwave', icon: '🌌' },
+  { value: 'halloween', label: 'Halloween', icon: '🎃' },
+  { value: 'forest', label: 'Forest', icon: '🌲' },
+  { value: 'luxury', label: 'Luxury', icon: '💎' },
+  { value: 'dracula', label: 'Dracula', icon: '🧛' },
+  { value: 'business', label: 'Business', icon: '💼' },
+  { value: 'acid', label: 'Acid', icon: '☣️' },
+  { value: 'lemonade', label: 'Lemonade', icon: '🍋' },
+  { value: 'coffee', label: 'Coffee', icon: '☕' },
+  { value: 'winter', label: 'Winter', icon: '❄️' },
+  { value: 'dim', label: 'Dim', icon: '🕶️' },
+  { value: 'nord', label: 'Nord', icon: '🥶' },
+  { value: 'sunset', label: 'Sunset', icon: '🌇' },
 ] as const;
 
 let activeThemeIcon = $derived(
@@ -182,21 +196,37 @@ async function approveEmail(email: string) {
             <span onclick={() => (showVideo = true)} class="text-xl font-black bg-gradient-to-r from-primary to-secondary bg-clip-text text-transparent cursor-pointer select-none">AG Server</span>
         </div>
         <div class="flex-none gap-2">
-                    <div class="dropdown dropdown-end">
-                        <button tabindex="0" class="btn btn-ghost btn-circle text-lg" aria-label="Change theme">
-                            {activeThemeIcon}
-                        </button>
-                        <ul tabindex="-1" class="dropdown-content menu menu-sm bg-base-100 rounded-box z-[1] w-40 p-2 shadow-lg border border-base-200">
-                            {#each THEMES as t}
-                                <li>
-                                    <button onclick={() => setTheme(t.value)} class={currentTheme === t.value ? 'active' : ''}>
-                                        {t.icon} {t.label}
-                                    </button>
-                                </li>
-                            {/each}
-                        </ul>
-                    </div>
 
+            <div class="dropdown dropdown-end" class:dropdown-open={themeDropdownOpen}>
+                <button
+                    tabindex="0"
+                    class="btn btn-ghost btn-circle text-lg"
+                    aria-label="Change theme"
+                    onclick={() => (themeDropdownOpen = !themeDropdownOpen)}
+                    onblur={() => setTimeout(() => (themeDropdownOpen = false), 150)}
+                >
+                    {activeThemeIcon}
+                </button>
+
+                {#if themeDropdownOpen}
+                    <div
+                        class="dropdown-content bg-base-100 rounded-box z-50 p-3 shadow-xl border border-base-200 mt-2 grid grid-cols-2 gap-1 w-72"
+                    >
+                        {#each THEMES as t}
+                            <button
+                                onclick={() => {
+                                    setTheme(t.value);
+                                    themeDropdownOpen = false;
+                                }}
+                                class="btn btn-ghost btn-sm justify-start gap-2 text-xs font-normal {currentTheme === t.value ? 'btn-active bg-base-200 font-semibold' : ''}"
+                            >
+                                <span class="text-base flex-shrink-0">{t.icon}</span>
+                                <span class="truncate">{t.label}</span>
+                            </button>
+                        {/each}
+                    </div>
+                {/if}
+            </div>
             {#if $authStore.isSignedIn}
                 <div class="dropdown dropdown-end">
                     <button tabindex="0" class="btn btn-ghost btn-circle avatar">

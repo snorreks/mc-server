@@ -35,8 +35,6 @@ Thumbs.db
 # Pi agent
 .pi/
 
-# Bun
-bun.lock
 
 # Scripts temp
 scripts/.local-data/
@@ -46,6 +44,8 @@ scripts/node_modules/
 # Example (reference only, not deployed)
 example/
 
-# Logs
-*.log
+# Netlify
 .netlify
+
+# Firebase Hosting local config (not committed)
+frontend/firebase.hosting.local.json

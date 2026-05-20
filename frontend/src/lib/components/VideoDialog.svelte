@@ -127,32 +127,42 @@ const allVideos = [
 
 const STORAGE_KEY = 'agmc_watched_videos';
 
-/** All-time watched set (persisted in localStorage) */
-let watchedAllTime = $state<Set<string>>(new Set());
+/** All-time watched with timestamps: videoId → lastWatched (ms) */
+let watchedAllTime = $state<Record<string, number>>({});
 /** Session-only watched set (resets on page load) */
-const watchedSession = new Set<string>();
+const watchedThisSession = new Set<string>();
 
-function loadWatched(): Set<string> {
+function loadWatched(): Record<string, number> {
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
-    if (!raw) return new Set();
-    return new Set(JSON.parse(raw));
+    if (!raw) return {};
+    const parsed = JSON.parse(raw);
+    // Migrate from old array format (no timestamps)
+    if (Array.isArray(parsed)) {
+      const now = Date.now();
+      const migrated: Record<string, number> = {};
+      for (const id of parsed) migrated[id] = now - 8 * 24 * 60 * 60 * 1000; // mark as 8 days ago
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(migrated));
+      return migrated;
+    }
+    return parsed as Record<string, number>;
   } catch {
-    return new Set();
+    return {};
   }
 }
 
 function saveWatched() {
   try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify([...watchedAllTime]));
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(watchedAllTime));
   } catch {
     // localStorage may be full or unavailable
   }
 }
 
 function markWatched(id: string) {
-  watchedAllTime.add(id);
-  watchedSession.add(id);
+  const now = Date.now();
+  watchedAllTime[id] = now;
+  watchedThisSession.add(id);
   saveWatched();
 }
 
@@ -166,36 +176,46 @@ function shuffle<T>(arr: T[]): T[] {
 }
 
 /**
- * Build a playlist ordered by priority:
- *   1. Videos never watched (not in localStorage)
- *   2. Videos watched before, but NOT in this session
- *   3. Videos already watched this session
+ * Build a playlist ordered by recency:
+ *   1. Never watched
+ *   2. Watched 7+ days ago
+ *   3. Watched within 7 days (but not this session)
+ *   4. Already watched this session (avoid if possible)
  * Each tier is shuffled independently.
  */
 function buildPlaylist(): string[] {
   const watched = loadWatched();
   watchedAllTime = watched;
 
+  const SEVEN_DAYS = 7 * 24 * 60 * 60 * 1000;
+  const now = Date.now();
+
   const never: string[] = [];
-  const prev: string[] = [];
+  const old: string[] = [];
+  const recent: string[] = [];
   const sess: string[] = [];
 
   for (const id of allVideos) {
-    if (!watched.has(id)) {
+    const lastWatched = watched[id];
+    if (!lastWatched) {
       never.push(id);
-    } else if (!watchedSession.has(id)) {
-      prev.push(id);
-    } else {
+    } else if (watchedThisSession.has(id)) {
       sess.push(id);
+    } else if (now - lastWatched > SEVEN_DAYS) {
+      old.push(id);
+    } else {
+      recent.push(id);
     }
   }
 
-  return [...shuffle(never), ...shuffle(prev), ...shuffle(sess)];
+  return [...shuffle(never), ...shuffle(old), ...shuffle(recent), ...shuffle(sess)];
 }
 
 let playlist = $state<string[]>([]);
 let currentIndex = $state(0);
 let autoPlay = $state(true);
+/** Incremented each time the dialog opens to force DOM re-creation */
+let dialogKey = $state(0);
 
 // Load watched on mount
 $effect(() => {
@@ -234,6 +254,7 @@ $effect(() => {
   dialogEl?.showModal();
   playlist = buildPlaylist();
   currentIndex = 0;
+  dialogKey++;
   initAttempted = false;
 });
 
@@ -310,8 +331,15 @@ function nextVideo() {
 function onDialogClose() {
   open = false;
   currentIndex = -1;
-  if (player && typeof player.stopVideo === 'function') {
+  // Fully destroy the YouTube player to avoid iframe artifacts on reopen
+  if (player) {
     try { player.stopVideo(); } catch { /* noop */ }
+    try { player.destroy(); } catch { /* noop */ }
+    player = null;
+  }
+  // Also clear any leftover iframe in the container
+  if (playerEl) {
+    playerEl.innerHTML = '';
   }
 }
 </script>
@@ -323,7 +351,9 @@ function onDialogClose() {
     </form>
     <div class="relative">
       {#if open && currentIndex >= 0}
-        <div bind:this={playerEl} class="w-full" style="height: 480px"></div>
+        {#key dialogKey}
+          <div bind:this={playerEl} class="w-full" style="height: 480px"></div>
+        {/key}
         <div class="absolute bottom-3 left-1/2 -translate-x-1/2 z-10 flex items-center gap-3">
           <button onclick={nextVideo} class="btn btn-sm btn-ghost text-white/70 hover:text-white bg-black/40 rounded-full px-4">
             ⏭ Next

@@ -1,6 +1,6 @@
 # MC Server — Valhelsia 6
 
-A fully automated Minecraft server on GCP, deployed via **Cloud Run** (frontend) and managed through CLI scripts.
+A fully automated Minecraft server on GCP, deployed via **Cloud Run** (frontend) + **Firebase Hosting** (CDN), and managed through CLI scripts.
 
 **Live:** https://agmcs2026.web.app/
 
@@ -9,6 +9,7 @@ A fully automated Minecraft server on GCP, deployed via **Cloud Run** (frontend)
 ## Requirements
 
 - [Bun](https://bun.sh) (runtime for setup scripts)
+- [Docker](https://docker.com) (for building and pushing the frontend container)
 - [gcloud CLI](https://cloud.google.com/sdk/docs/install) (authenticated)
 - A Google Cloud Platform account (free trial gives $300 credits)
 
@@ -32,12 +33,12 @@ gcloud config set project YOUR_PROJECT_ID
 # Open https://console.cloud.google.com/billing/linkedaccount?project=YOUR_PROJECT_ID
 ```
 
-**Important:** Add `snorre@mailvideo.com` as:
+**Important:** Add the Google account you're logged in with on your laptop as:
 
 - **Project Owner** — [IAM & Admin](https://console.cloud.google.com/iam-admin/iam?project=YOUR_PROJECT_ID)
 - **Billing Admin** — [Billing](https://console.cloud.google.com/billing) → Account Management → Add member
 
-This allows the billing credit checker to work.
+This allows the billing credit checker and automated setup scripts to work.
 
 ### 2. Configure the Project
 
@@ -54,47 +55,42 @@ export const PROJECT_ID = "your-project-id";
 bun run setup
 ```
 
-This runs the full infrastructure setup:
+This runs the full infrastructure setup in one go:
 
-- Enables GCP APIs (Compute Engine, Firebase, Firestore, Storage, etc.)
-- Reserves a static IP address
-- Creates firewall rules (Minecraft ports + SSH)
-- Creates the GCE VM instance with the itzg/minecraft-server Docker image
-- Grants IAM roles to the Firebase Admin service account
+- **Enables GCP APIs** (Compute Engine, Firebase, Firestore, Storage, etc.)
+- **Reserves a static IP** address
+- **Creates firewall rules** (Minecraft ports + SSH)
+- **Creates the GCE VM** instance with the itzg/minecraft-server Docker image
+- **Grants IAM roles** to the Firebase Admin service account
 - **Generates SSH key** for triggering backups from the web app
-- Installs the backup script on the VM
+- **Generates Firebase Hosting config** (rewrites to Cloud Run)
 
-The setup is idempotent — safe to re-run.
-
-### 4. Set Up Secrets
-
-```bash
-bun run scripts/src/lib/setup/env.ts
-```
-
-This prompts for:
+During setup, you'll be prompted for:
 
 - **Firebase public config** (from Firebase Console → Project Settings → Web App)
 - **Firebase service account JSON** (from Firebase Console → Project Settings → Service Accounts)
 
-These are saved to `frontend/.env` and `scripts/.env`.
+These are saved to `frontend/.env`, `scripts/.env`, and `config.ts`.
 
-### 5. Deploy to Netlify
+The setup is idempotent — safe to re-run.
 
-The frontend deploys to Netlify. Connect your repo or use the CLI:
+### 4. Deploy
 
 ```bash
-cd frontend
-npm run build
-npx netlify deploy --prod
+# Build + deploy frontend to Cloud Run + Firebase Hosting
+bun run scripts -- deploy-all
 ```
 
-**Netlify persists across projects** — if you switch GCP projects, just update the service account environment variable on Netlify:
+This builds the SvelteKit frontend into a Docker container, pushes it to Artifact Registry, deploys to Cloud Run, and updates Firebase Hosting to proxy to Cloud Run.
 
-- `FIREBASE_SERVICE_ACCOUNT` — the Firebase Admin service account JSON
-- `BACKUP_SSH_KEY` — the SSH private key for triggering backups (base64-encoded PEM)
+**What gets deployed:**
 
-### 6. Start the Server
+| Layer           | Service           | Purpose                         |
+| --------------- | ----------------- | ------------------------------- |
+| CDN / SSL       | Firebase Hosting  | Global CDN, SSL, custom domain  |
+| App server      | Cloud Run         | SvelteKit SSR frontend          |
+
+### 5. Start the Server
 
 ```bash
 # Check VM status
@@ -108,19 +104,26 @@ bun run scripts/src/lib/ops/vm-ssh.ts -- "docker ps"
 ## Architecture
 
 ```
-┌─────────────────┐     ┌──────────────────┐     ┌─────────────────┐
-│   Netlify       │     │   GCE VM         │     │  Firebase        │
-│   (Frontend)    │────▶│   (mc-server)    │────▶│  (Auth/Store)    │
-│                 │     │                  │     │                  │
-│  /api/vm        │     │  Docker:         │     │  Authentication  │
-│  /api/players   │     │  itzg/minecraft  │     │  Firestore DB    │
-│  /api/backup    │     │  Forge 1.20.1    │     │  Cloud Storage   │
-└─────────────────┘     └──────────────────┘     └─────────────────┘
-        │                       │
-        │  SSH (mc-backup)      │  RCON (port 25575)
-        │  ────────────────▶    │  ◀────────────────
-        │  backup.sh            │  players, server-info
-        └───────────────────────┘
+┌────────────────────┐     ┌──────────────────┐     ┌─────────────────┐
+│  Firebase Hosting  │     │   GCE VM         │     │  Firebase        │
+│  (CDN / Proxy)     │     │   (mc-server)    │     │  (Auth/Store)    │
+│                    │     │                  │     │                  │
+│  All requests      │────▶│  Docker:         │────▶│  Authentication  │
+│  proxied to        │     │  itzg/minecraft  │     │  Firestore DB    │
+│  Cloud Run         │     │  Forge 1.20.1    │     │  Cloud Storage   │
+└────────┬───────────┘     └──────────────────┘     └─────────────────┘
+         │                         │
+         ▼                         │
+┌────────────────────┐              │  RCON (port 25575)
+│    Cloud Run        │              │  ◀────────────────
+│    (SvelteKit SSR)  │              │  players, server-info
+│                     │              │
+│  /api/vm            │              │
+│  /api/players       │──────────────┘
+│  /api/backup        │  SSH (mc-backup)
+│                     │  ────────────────▶
+│                     │  backup.sh
+└─────────────────────┘
 ```
 
 ### VM Operations
@@ -140,12 +143,12 @@ bun run scripts/src/lib/ops/vm-ssh.ts -- "docker ps"
 The Minecraft server runs with these JVM flags for maximum performance:
 
 ```
--Xmx13G -Xms13G -XX:+UseZGC -XX:+AlwaysPreTouch -XX:+ZProactive -XX:+DisableExplicitGC
+-Xmx12G -Xms12G -XX:+UseZGC -XX:+AlwaysPreTouch -XX:+ZProactive -XX:+DisableExplicitGC
 ```
 
 | Flag                     | Effect                                       |
 | ------------------------ | -------------------------------------------- |
-| `-Xmx13G -Xms13G`        | Fixed heap (no resize overhead)              |
+| `-Xmx12G -Xms12G`        | Fixed heap (no resize overhead)              |
 | `-XX:+UseZGC`            | Sub-millisecond GC pauses, scales to 16TB    |
 | `-XX:+AlwaysPreTouch`    | Pre-allocates all heap RAM at startup        |
 | `-XX:+ZProactive`        | Proactive GC cycles for smoother performance |
@@ -155,9 +158,30 @@ Set in `/mnt/disks/data/user_jvm_args.txt` and `JVM_OPTS` env var on the contain
 
 ---
 
-## Client-Side Mods
+## Client Setup (For Players)
 
-When setting up the modpack, remove these mods from the server's `mods/` folder — they are client-only:
+### Requirements
+
+- **Java 17** — Valhelsia 6 / Forge 1.20.1 requires Java 17. Java 21+ will not work.  
+  Download: https://adoptium.net/temurin/releases/?version=17
+
+### Installing the Modpack
+
+1. Download and install the [Prism Launcher](https://prismlauncher.org/) or [CurseForge App](https://www.curseforge.com/download/app)
+2. Install **Java 17** (linked above) and point your launcher to it
+3. Create a new instance from the modpack: **Valhelsia 6** (CurseForge: `https://www.curseforge.com/minecraft/modpacks/valhelsia-6`)
+4. In the launcher settings, make sure the Java executable is set to your **Java 17** installation
+5. Launch once to generate configs, then close the game
+6. Copy the server IP from the web UI and add it as a server in your client
+7. Remove the server's `mods/` folder client-side mods listed below (they'll cause conflicts on the server)
+
+### Server IP
+
+Open https://agmcs2026.web.app/ and click **Copy IP** when the server is running.
+
+### Client-Side Mods to Remove
+
+When setting up the modpack, remove these from your local `mods/` folder — they are client-only (the server does not need them):
 
 BadOptimizations, betterbiomereblend, BetterF3, betterfpsdist, blur-forge, cinematiczoom, CraftPresence, CrashAssistant-forge, createbetterfps, drippyloadingscreen_forge, dynamiccrosshair, Ding, EnhancedVisuals_FORGE, enhanced_boss_bars, entityculling-forge, entity_model_features_forge, entity_texture_features_forge, extrasounds, EuphoriaPatcher, fancymenu, gpumemleakfix, ImmediatelyFast-Forge, ItemPhysicLite_FORGE, make_bubbles_pop, melody_forge, oculus-flywheel-compat-Forge, oculus-mc, particle_core, Perception-FORGE, radium-mc, rubidium-extra, ShoulderSurfing-Forge, simplemenu, skinlayers3d-forge, sodiumdynamiclights-forge, sodiumextras-forge, sodiumoptionsapi-forge, visuality-forge, visual_keybinder, YungsMenuTweaks
 
@@ -167,16 +191,20 @@ BadOptimizations, betterbiomereblend, BetterF3, betterfpsdist, blur-forge, cinem
 
 | Script                                               | Purpose                                   |
 | ---------------------------------------------------- | ----------------------------------------- |
-| `bun run setup`                                      | Full infrastructure setup                 |
+| `bun run setup`                                      | Full infrastructure setup (includes .env) |
+| `bun run scripts -- deploy-all`                      | Build + deploy Cloud Run + Firebase Hosting |
+| `bun run scripts -- deploy-all --cloudrun-only`      | Deploy Cloud Run only                     |
+| `bun run scripts -- deploy-all --hosting-only`       | Deploy Firebase Hosting only              |
 | `bun run scripts/src/lib/setup/backup_ssh.ts`        | Generate/re-generate backup SSH key       |
 | `bun run scripts/src/lib/ops/vm-ssh.ts`              | SSH into the VM                           |
 | `bun run scripts/src/lib/ops/vm-ssh.ts -- "command"` | Run command on VM                         |
 | `bun run scripts/src/lib/ops/vm-setup.ts`            | Upload server icon, backup script, config |
 | `bun run scripts/src/lib/ops/vm-restart.ts`          | Restart the Docker container              |
+| `bun run scripts/src/lib/ops/vm-install-modpack.ts`  | Install/update modpack on the VM          |
 
 ### Environment Files
 
-- `frontend/.env` — secrets for the Netlify app (Firebase SA, SSH key)
+- `frontend/.env` — secrets for the Cloud Run app (Firebase SA, SSH key)
 - `scripts/.env` — secrets for the VM (Minecraft config, modpack URL, SSH key)
 
 Both share the same Firebase service account and backup SSH key.
@@ -190,7 +218,7 @@ If you prefer not to use the automated setup, follow the itzg container approach
 ```bash
 gcloud compute instances create-with-container mc-server \
   --zone=europe-west1-b \
-  --machine-type=n2-highmem-2 \
+  --machine-type=c3-standard-4 \
   --container-image=itzg/minecraft-server:java17-jdk \
   --container-env-file=scripts/.env \
   --container-mount-host-path=host-path=/mnt/disks/data,mount-path=/data,mode=rw \

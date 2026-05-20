@@ -181,8 +181,13 @@ async function main() {
         ? `${ROOT}/node_modules/.bin/firebase`
         : 'firebase';
 
+    // Prefer local config over committed one
+    const hostingConfig = existsSync(`${FRONTEND}/firebase.hosting.local.json`)
+      ? `${FRONTEND}/firebase.hosting.local.json`
+      : `${FRONTEND}/firebase.hosting.json`;
+
     run(
-      `${firebaseBin} deploy --config ${FRONTEND}/firebase.hosting.json --only hosting --project ${PROJECT_ID}`,
+      `${firebaseBin} deploy --config ${hostingConfig} --only hosting --project ${PROJECT_ID}`,
       BACKEND,
     );
   }

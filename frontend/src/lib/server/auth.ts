@@ -2,11 +2,10 @@ import { type Auth, type DecodedIdToken, getAuth as fbGetAuth } from 'firebase-a
 import { getFirestore } from 'firebase-admin/firestore';
 import { AG_ALLOWED_EMAILS_PATH } from '$config';
 import { deleteCookie, getCookie } from '$lib/server/cookies';
+import { getApp } from './firebase';
 
 export const SESSION_MAX_AGE_SEC = 14 * 24 * 60 * 60; // 14 days
 export const SESSION_MAX_AGE_MS = SESSION_MAX_AGE_SEC * 1000;
-
-import { getApp } from './firebase';
 
 let _auth: Auth | undefined;
 
@@ -33,54 +32,66 @@ export async function verifySessionCookie(
   cookies: import('@sveltejs/kit').Cookies,
   cleanup?: { request: Request; url: URL },
 ): Promise<ServerUser | null> {
-  const rawCookie = getCookie('__session', { cookies });
-  if (!rawCookie) {
-    return null;
-  }
+  // ✅ FIX: getCookie('__session') automatically unpacks your custom JSON
+  // structure and returns ONLY the session JWT string.
+  const sessionCookie = getCookie('__session', { cookies });
 
-  // Backward compat: old format stored JSON {session: "<JWT>", ...}
-  // New format stores the JWT directly.
-  let sessionCookie = rawCookie;
-  if (rawCookie.startsWith('{')) {
-    try {
-      const parsed = JSON.parse(rawCookie);
-      if (parsed.session) sessionCookie = parsed.session;
-    } catch { /* not JSON, use raw */ }
+  if (!sessionCookie || sessionCookie.trim() === '' || sessionCookie === 'undefined') {
+    return null;
   }
 
   try {
     const decoded = await getAuth().verifySessionCookie(sessionCookie, true);
     const email = decoded.email ?? '';
 
-    // Primary: read isActive from the custom claim (set at login on subsequent tokens)
-    let isActive = (decoded as Record<string, unknown>).isActive === true;
-    console.log('[auth:server] verifySessionCookie — custom claim isActive:', isActive, 'from decoded claims:', JSON.stringify(Object.keys(decoded)));
+    if (!email) {
+      throw new Error('Token does not contain a valid email address');
+    }
 
-    // Fallback: if the custom claim hasn't propagated yet (first session),
-    // check allowed_emails from Firestore directly
-    if (!isActive && email) {
+    // Read isActive from the custom claims payload
+    let isActive = (decoded as Record<string, unknown>).isActive === true;
+    console.log('[auth:server] verifySessionCookie — claim isActive:', isActive, 'for:', email);
+
+    // Fallback block: Direct check on Firestore
+    if (!isActive) {
       try {
-        const doc = await getFirestore(getApp()).doc(AG_ALLOWED_EMAILS_PATH).get();
-        const allowed = doc.data() as Record<string, boolean> | undefined;
+        const firestoreInstance = getFirestore(getApp());
+        const docRef = firestoreInstance.doc(AG_ALLOWED_EMAILS_PATH);
+        const docSnap = await docRef.get();
+
+        const allowed = docSnap.data() as Record<string, boolean> | undefined;
         isActive = allowed?.[email] === true;
-        console.log('[auth:server] verifySessionCookie — fallback isActive:', isActive, 'email:', email);
-      } catch {
-        console.warn('[auth:server] verifySessionCookie — Firestore fallback failed');
+        console.log(
+          '[auth:server] verifySessionCookie — fallback isActive:',
+          isActive,
+          'email:',
+          email,
+        );
+      } catch (fsError) {
+        console.warn(
+          '[auth:server] verifySessionCookie — Firestore fallback execution failed',
+          fsError,
+        );
+        isActive = false; // Defensively reject access if DB check goes sideways
       }
     }
 
-    console.log('[auth:server] verifySessionCookie — final isActive:', isActive, 'for:', email);
-
+    // Explicit request isolation payload return
     return {
       uid: decoded.uid,
       email,
-      displayName: ((decoded as Record<string, unknown>).name as string) ?? '',
-      photoURL: ((decoded as Record<string, unknown>).picture as string) ?? '',
+      displayName: (decoded.name as string) ?? '',
+      photoURL: (decoded.picture as string) ?? '',
       isActive,
     };
-  } catch {
+  } catch (error) {
+    console.error('[auth:server] verifySessionCookie verification crash, purging token.', error);
     if (cleanup) {
-      deleteCookie('__session', { cookies });
+      try {
+        deleteCookie('__session', { cookies });
+      } catch (cookieError) {
+        console.error('[auth:server] Failed to clean up dead cookie context', cookieError);
+      }
     }
     return null;
   }

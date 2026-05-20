@@ -11,7 +11,7 @@
     "dev": "cd frontend && bun run dev",
     "build": "cd frontend && bun run build",
     "deploy": "bun firebase deploy",
-    "deploy:frontend": "cd scripts && bun run src/lib/ops/deploy-frontend.ts",
+    "deploy:frontend": "cd scripts && bun run src/lib/ops/deploy-cloudrun",
     "deploy:backend": "cd backend && bun run deploy",
     "setup": "cd scripts && bun run src/index.ts",
     "setup:firestore": "cd scripts && bun run src/lib/ops/init-firestore.ts",
