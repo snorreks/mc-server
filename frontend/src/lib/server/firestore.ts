@@ -1,5 +1,10 @@
 import { type Firestore, initializeFirestore } from 'firebase-admin/firestore';
-import { AG_ALLOWED_EMAILS_PATH, AG_STATUS_PATH, type ServerStatusData } from '$config';
+import {
+  AG_ALLOWED_EMAILS_PATH,
+  AG_STATUS_PATH,
+  AG_PLAYERS_PATH,
+  type ServerStatusData,
+} from '$config';
 import { getApp } from './firebase.js';
 
 let _database: Firestore | undefined;
@@ -18,9 +23,12 @@ export const getFirestore = (): Firestore => {
 export const allowedEmails = async (): Promise<string[]> => {
   try {
     const doc = await getFirestore().doc(AG_ALLOWED_EMAILS_PATH).get();
-    const data = doc.exists ? (doc.data() as Record<string, boolean>) : {};
+    const data = doc.exists ? (doc.data() as Record<string, boolean | { approved: boolean }>) : {};
     return Object.entries(data)
-      .filter(([, v]) => v === true)
+      .filter(([, v]) => {
+        if (typeof v === 'boolean') return v === true;
+        return v.approved === true;
+      })
       .map(([k]) => k);
   } catch (error) {
     console.error('allowedEmails', error);
@@ -60,3 +68,33 @@ export const setServerStatus = async (data: {
 
   await getFirestore().doc(AG_STATUS_PATH).set(update, { merge: true });
 };
+
+// ── Player tracking ───────────────────────────────────────────────────────
+
+export type PlayerRecord = { name: string; lastOnline: Date };
+
+/** Bulk-update player last-seen timestamps. Stores in ag-server/players doc. */
+export async function recordPlayersOnline(names: string[]) {
+  if (names.length === 0) return;
+
+  const now = new Date();
+  const update: Record<string, Date> = {};
+  for (const name of names) {
+    update[name] = now;
+  }
+  await getFirestore().doc(AG_PLAYERS_PATH).set(update, { merge: true });
+}
+
+/** Get all known players with their last online timestamp, sorted by most recent. */
+export async function getKnownPlayers(): Promise<PlayerRecord[]> {
+  try {
+    const doc = await getFirestore().doc(AG_PLAYERS_PATH).get();
+    if (!doc.exists) return [];
+    const data = (doc.data() ?? {}) as Record<string, Date>;
+    return Object.entries(data)
+      .map(([name, lastOnline]) => ({ name, lastOnline }))
+      .sort((a, b) => b.lastOnline.getTime() - a.lastOnline.getTime());
+  } catch {
+    return [];
+  }
+}

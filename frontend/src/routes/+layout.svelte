@@ -4,6 +4,7 @@ import '../app.css';
 import { onMount } from 'svelte';
 import { authStore } from '$lib/client/services/auth.svelte';
 import { init as initServerStatus } from '$lib/client/services/firestore.svelte';
+import { initApprovalsListener, approvals } from '$lib/client/services/approvals.svelte';
 import VideoDialog from '$lib/components/VideoDialog.svelte';
 import { GoogleAuthProvider, signInWithPopup } from 'firebase/auth';
 import { doc, getDoc } from 'firebase/firestore';
@@ -62,7 +63,6 @@ const OG_BASE = 'https://agmcs2026.web.app/images/';
 let ogImage = $state(OG_IMAGES[Math.floor(Math.random() * OG_IMAGES.length)]);
 let showVideo = $state(false);
 let showApprovals = $state(false);
-let pendingEmails = $state<{ email: string; approved: boolean }[]>([]);
 
 let { data, children } = $props();
 
@@ -70,7 +70,6 @@ let { data, children } = $props();
 let currentTheme = $state(data.theme ?? 'system');
 let isAuthenticating = $state(false);
 let toastError = $state('');
-let themeDropdownOpen = $state(false);
 
 // svelte-ignore state_referenced_locally
 authStore.seedFromSSR(data.user);
@@ -105,6 +104,7 @@ let activeThemeIcon = $derived(
 onMount(() => {
   authStore.init();
   initServerStatus();
+  initApprovalsListener();
   applyTheme(currentTheme);
 });
 
@@ -142,19 +142,33 @@ async function handleSignIn() {
     const email = result.user.email;
     if (!email) throw new Error('No email associated with this account.');
 
+    const displayName = result.user.displayName;
+    const photoURL = result.user.photoURL;
+
     const db = getFirebaseFirestore();
     const docSnap = await getDoc(doc(db, AG_ALLOWED_EMAILS_PATH));
-    const allowedEmails = (docSnap.data() ?? {}) as Record<string, boolean>;
+    const allowedData = (docSnap.data() ?? {}) as Record<string, boolean | { approved: boolean }>;
+    const entry = allowedData[email];
+    const isAllowed = typeof entry === 'boolean' ? entry === true : entry?.approved === true;
 
-    if (!allowedEmails[email]) {
-      // Auto-add as pending (false = not yet approved)
+    if (!isAllowed) {
+      // Auto-add as pending with photoURL and displayName
       await fetch('/api/auth/approve', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email, approved: false }),
+        body: JSON.stringify({ email, approved: false, photoURL, displayName }),
       });
       await auth.signOut();
       throw new Error('Your access is pending approval. An admin will review your request.');
+    }
+
+    // Sync photoURL/displayName on every sign-in (handles first-time backfill + profile photo changes)
+    if (photoURL || displayName) {
+      fetch('/api/auth/approve', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email, approved: true, photoURL, displayName }),
+      }).catch(() => {});
     }
   } catch (e: any) {
     if (!e.message.includes('popup-closed')) showError(e.message || 'Sign in failed');
@@ -165,13 +179,7 @@ async function handleSignIn() {
 
 async function loadPendingApprovals() {
   showApprovals = true;
-  try {
-    const res = await fetch('/api/auth/approve');
-    const data = await res.json();
-    pendingEmails = data.entries ?? [];
-  } catch {
-    pendingEmails = [];
-  }
+  // approvals.entries is already reactive from the Firestore listener
 }
 
 async function approveEmail(email: string) {
@@ -180,7 +188,14 @@ async function approveEmail(email: string) {
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ email, approved: true }),
   });
-  pendingEmails = pendingEmails.map((e) => (e.email === email ? { ...e, approved: true } : e));
+}
+
+async function rejectEmail(email: string) {
+  await fetch('/api/auth/approve/reject', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ email }),
+  });
 }
 </script>
 
@@ -197,39 +212,32 @@ async function approveEmail(email: string) {
         </div>
         <div class="flex-none gap-2">
 
-            <div class="dropdown dropdown-end" class:dropdown-open={themeDropdownOpen}>
-                <button
-                    tabindex="0"
-                    class="btn btn-ghost btn-circle text-lg"
-                    aria-label="Change theme"
-                    onclick={() => (themeDropdownOpen = !themeDropdownOpen)}
-                    onblur={() => setTimeout(() => (themeDropdownOpen = false), 150)}
-                >
+            <div class="dropdown dropdown-end">
+                <button tabindex="0" class="btn btn-ghost btn-circle text-lg" aria-label="Change theme">
                     {activeThemeIcon}
                 </button>
 
-                {#if themeDropdownOpen}
-                    <div
-                        class="dropdown-content bg-base-100 rounded-box z-50 p-3 shadow-xl border border-base-200 mt-2 grid grid-cols-2 gap-1 w-72"
-                    >
-                        {#each THEMES as t}
-                            <button
-                                onclick={() => {
-                                    setTheme(t.value);
-                                    themeDropdownOpen = false;
-                                }}
-                                class="btn btn-ghost btn-sm justify-start gap-2 text-xs font-normal {currentTheme === t.value ? 'btn-active bg-base-200 font-semibold' : ''}"
-                            >
-                                <span class="text-base flex-shrink-0">{t.icon}</span>
-                                <span class="truncate">{t.label}</span>
-                            </button>
-                        {/each}
-                    </div>
-                {/if}
+                <div
+                    tabindex="-1"
+                    class="dropdown-content bg-base-100 rounded-box z-50 p-3 shadow-xl border border-base-200 mt-2 grid grid-cols-2 gap-1 w-72"
+                >
+                    {#each THEMES as t}
+                        <button
+                            onclick={() => {
+                                setTheme(t.value);
+                                (document.activeElement as HTMLElement)?.blur();
+                            }}
+                            class="btn btn-ghost btn-sm justify-start gap-2 text-xs font-normal {currentTheme === t.value ? 'btn-active bg-base-200 font-semibold' : ''}"
+                        >
+                            <span class="text-base flex-shrink-0">{t.icon}</span>
+                            <span class="truncate">{t.label}</span>
+                        </button>
+                    {/each}
+                </div>
             </div>
             {#if $authStore.isSignedIn}
                 <div class="dropdown dropdown-end">
-                    <button tabindex="0" class="btn btn-ghost btn-circle avatar">
+                    <button tabindex="0" class="btn btn-ghost btn-circle avatar relative">
                         <div class="w-9 rounded-full ring ring-primary ring-offset-base-100 ring-offset-2">
                             {#if $authStore.photoURL}
                                 <img src={$authStore.photoURL} alt={$authStore.displayName} referrerpolicy="no-referrer" />
@@ -239,11 +247,24 @@ async function approveEmail(email: string) {
                                 </div>
                             {/if}
                         </div>
+                        {#if $authStore.isActive && approvals.hasPending}
+                            <span class="absolute -top-0.5 -right-0.5">
+                                <span class="relative flex h-2.5 w-2.5">
+                                    <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-error opacity-60"></span>
+                                    <span class="relative inline-flex rounded-full h-2.5 w-2.5 bg-error"></span>
+                                </span>
+                            </span>
+                        {/if}
                     </button>
                     <ul tabindex="-1" class="dropdown-content menu menu-sm bg-base-100 rounded-box z-[1] w-52 p-2 shadow-lg border border-base-200 mt-3">
                         <li class="menu-title px-4 py-2 text-xs opacity-60">{$authStore.email}</li>
                         {#if $authStore.isActive}
-                            <li><button onclick={loadPendingApprovals} class="text-xs">👥 Pending Approvals</button></li>
+                            <li><button onclick={loadPendingApprovals} class="text-xs">
+                                👥 Pending
+                                {#if approvals.hasPending}
+                                    <span class="badge badge-error badge-xs ml-1">{approvals.pendingCount}</span>
+                                {/if}
+                            </button></li>
                         {/if}
                         <div class="divider my-0"></div>
                         <li><button class="text-error font-medium" onclick={() => authStore.signOut()}>Sign Out</button></li>
@@ -277,26 +298,58 @@ async function approveEmail(email: string) {
 <VideoDialog bind:open={showVideo} />
 
 <dialog class="modal" class:modal-open={showApprovals}>
-  <div class="modal-box max-w-sm">
-    <div class="flex items-center justify-between mb-4">
-      <h3 class="font-bold text-lg">👥 Pending Approvals</h3>
-      <button class="btn btn-circle btn-ghost btn-sm" onclick={() => (showApprovals = false)}>✕</button>
-    </div>
-    {#if pendingEmails.length === 0}
-      <p class="text-sm text-base-content/60 py-4 text-center">No pending requests</p>
+  <div class="modal-box max-w-md">
+    <form method="dialog">
+      <button class="btn btn-sm btn-circle btn-ghost absolute right-2 top-2" onclick={() => (showApprovals = false)}>✕</button>
+    </form>
+    <h3 class="font-bold text-lg mb-1">👥 Access Requests</h3>
+    <p class="text-xs text-base-content/50 mb-4">Approve or reject email sign-up requests.</p>
+
+    {#if approvals.entries.length === 0}
+      <div class="flex flex-col items-center gap-2 py-6 text-base-content/40">
+        <span class="text-3xl">📭</span>
+        <p class="text-sm">No requests yet</p>
+      </div>
     {:else}
-      <ul class="space-y-2">
-        {#each pendingEmails as entry}
-          <li class="flex items-center justify-between gap-2">
-            <span class="text-sm truncate">{entry.email}</span>
-            {#if entry.approved}
-              <span class="badge badge-success badge-sm">Approved</span>
-            {:else}
-              <button onclick={() => approveEmail(entry.email)} class="btn btn-primary btn-xs">Approve</button>
-            {/if}
-          </li>
+      <div class="space-y-1 max-h-72 overflow-y-auto">
+        {#each approvals.entries as entry}
+          <div class="flex items-center justify-between gap-3 px-3 py-2 rounded-lg hover:bg-base-200 transition-colors{entry.approved ? ' bg-success/10' : ''}">
+            <div class="flex items-center gap-2.5 min-w-0">
+              <div class="avatar flex-shrink-0">
+                {#if entry.photoURL}
+                  <div class="w-8 rounded-full">
+                    <img src={entry.photoURL} alt={entry.email} referrerpolicy="no-referrer" />
+                  </div>
+                {:else}
+                  <div class="w-8 rounded-full {entry.approved ? 'bg-success/20 text-success' : 'bg-warning/20 text-warning'} flex items-center justify-center">
+                    <span class="text-xs font-bold">{entry.email.charAt(0).toUpperCase()}</span>
+                  </div>
+                {/if}
+              </div>
+              <div class="min-w-0">
+                <span class="text-sm font-medium block truncate">{entry.displayName || entry.email}</span>
+                {#if entry.displayName}
+                  <span class="text-[10px] text-base-content/40 truncate block">{entry.email}</span>
+                {/if}
+              </div>
+            </div>
+            <div class="flex items-center gap-1 flex-shrink-0">
+              {#if entry.approved}
+                <span class="badge badge-success badge-sm gap-1">
+                  ✓ Approved
+                </span>
+              {:else}
+                <button onclick={() => rejectEmail(entry.email)} class="btn btn-ghost btn-xs text-error">
+                  ✕
+                </button>
+                <button onclick={() => approveEmail(entry.email)} class="btn btn-primary btn-xs">
+                  ✓ Approve
+                </button>
+              {/if}
+            </div>
+          </div>
         {/each}
-      </ul>
+      </div>
     {/if}
   </div>
   <form method="dialog" class="modal-backdrop">

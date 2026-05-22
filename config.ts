@@ -51,6 +51,7 @@ export const FIREBASE_CONFIG = {
 // ── Firestore document paths ───────────────────────────────────────────────
 export const AG_STATUS_PATH = 'ag-server/status';
 export const AG_ALLOWED_EMAILS_PATH = 'ag-server/allowed_emails';
+export const AG_PLAYERS_PATH = 'ag-server/players';
 
 export type CoreData = Record<string, unknown>;
 

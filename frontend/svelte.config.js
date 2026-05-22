@@ -19,6 +19,7 @@ const config = {
     alias: {
       $logger: resolve(projectDirectory, 'src/lib/utils/logger.ts'),
       $config: resolve(rootDirectory, 'config.ts'),
+      $shared: resolve(rootDirectory, 'shared'),
       $lib: resolve(projectDirectory, 'src/lib'),
       '$components/*': resolve(projectDirectory, 'src/lib/components/*'),
       '$types': resolve(projectDirectory, 'src/lib/types.ts'),

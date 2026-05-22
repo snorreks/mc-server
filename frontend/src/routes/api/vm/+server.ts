@@ -6,20 +6,13 @@ import { google } from 'googleapis';
 import { PROJECT_ID, VM_INSTANCE, VM_ZONE } from '$config';
 import { FIREBASE_SERVICE_ACCOUNT } from '$env/static/private';
 import { parseServiceAccount } from '$lib/server/firebase';
-import { getServerStatus, setServerStatus } from '$lib/server/firestore';
+import { getServerStatus, setServerStatus, recordPlayersOnline } from '$lib/server/firestore';
 import { runBackup } from '$lib/server/backup';
 import { gracefulStopMc } from '$lib/server/graceful-stop';
 import { rconCommand } from '$lib/server/rcon';
 import { logger } from '$logger';
+import { parsePlayerList, toMs } from '$shared/utils';
 import type { RequestHandler } from './$types';
-
-/** Firestore Timestamps don't have .getTime() — handle both Date and Timestamp */
-function toMs(d: Date | { toMillis?: () => number } | undefined | null): number {
-  if (!d) return 0;
-  if (typeof (d as Date).getTime === 'function') return (d as Date).getTime();
-  if (typeof (d as { toMillis: () => number }).toMillis === 'function') return (d as { toMillis: () => number }).toMillis();
-  return 0;
-}
 
 type OAuth2Client = InstanceType<typeof google.auth.OAuth2>;
 
@@ -68,12 +61,18 @@ async function startServer(user: { uid: string; email: string }) {
 async function stopServer(user: { uid: string; email: string }) {
   logger.info('vm', `stop requested by ${user.uid} (${user.email})`);
 
+  // Check if already off — skip RCON, GCE API, and Firestore update
+  const serverStatus = await getServerStatus();
+  if (!serverStatus?.serverIsOn) {
+    logger.info('vm', 'stop skipped — server already off');
+    return;
+  }
+
   // Step 1-2: save-all + stop via RCON, wait for shutdown
   await gracefulStopMc();
 
   // Step 3: Stop the GCE instance
   const authClient = await getComputeClient();
-  const serverStatus = await getServerStatus();
   const setLastOnline = !!serverStatus?.serverIsOn;
 
   const now = Date.now();
@@ -119,6 +118,23 @@ async function checkServerStatus(user: { uid: string; email: string }) {
     const ready = await isMcServerReady();
     const serverStatus = ready ? 'RUNNING' : 'STARTING';
     await setServerStatus({ serverIsOn: true, serverStatus });
+
+    // Record online players if server is running
+    if (ready) {
+      try {
+        const listOutput = await rconCommand('list');
+        const names = parsePlayerList(listOutput);
+        if (names.length > 0) {
+          recordPlayersOnline(names).catch((e) =>
+            logger.error('vm', 'player recording failed', { error: String(e) }),
+          );
+        }
+      } catch (e) {
+        // Player recording is best-effort
+        logger.warn('vm', 'could not record players', { error: String(e) });
+      }
+    }
+
     logger.info('vm', `check result: GCE=${gceStatus}, MC=${serverStatus}`);
   } else {
     await setServerStatus({ serverIsOn: false, serverStatus: gceStatus });
@@ -167,6 +183,30 @@ function assertActiveUser(event: { locals: App.Locals }): { uid: string; email: 
   return user;
 }
 
+// ── Rate Limiter for unauthenticated /check requests ───────────────────────
+/** In-memory rate limiter: IP → last request timestamp */
+const checkRateMap = new Map<string, number>();
+const CHECK_RATE_WINDOW_MS = 5_000; // 5 seconds between unauthenticated checks
+
+/**
+ * Returns true if the request should be rate-limited.
+ * Cleans up expired entries periodically.
+ */
+function isRateLimited(ip: string): boolean {
+  const now = Date.now();
+  const last = checkRateMap.get(ip);
+  if (last && now - last < CHECK_RATE_WINDOW_MS) return true;
+  checkRateMap.set(ip, now);
+
+  // Garbage collect every ~100 writes
+  if (checkRateMap.size > 500) {
+    for (const [k, v] of checkRateMap) {
+      if (now - v > CHECK_RATE_WINDOW_MS) checkRateMap.delete(k);
+    }
+  }
+  return false;
+}
+
 // ── Request Handler ──────────────────────────────────────────────────────────
 
 export const POST: RequestHandler = async (event) => {
@@ -174,15 +214,32 @@ export const POST: RequestHandler = async (event) => {
     const body = await event.request.json();
     const { type } = body;
 
+    // check is public (read-only status) — everything else requires auth
+    if (type === 'check') {
+      const user = getActiveUser(event);
+      const startTs = Date.now();
+
+      // Rate limit unauthenticated checks (1 per 5s per IP)
+      if (!user) {
+        const ip = event.request.headers.get('x-forwarded-for')?.split(',')[0]?.trim()
+          ?? event.getClientAddress?.() ?? 'unknown';
+        if (isRateLimited(ip)) {
+          logger.warn('vm', `check rate-limited for IP ${ip}`);
+          return json({ error: 'Too many requests. Please wait a few seconds.' }, { status: 429 });
+        }
+      }
+
+      await checkServerStatus(user ?? { uid: 'anonymous', email: 'anonymous' });
+      logger.info('vm', `check succeeded (${Date.now() - startTs}ms)`);
+      return json({ success: true });
+    }
+
     const user = assertActiveUser(event);
 
     logger.info('vm', `POST type=${type} by ${user.uid}`);
     const startTs = Date.now();
 
     switch (type) {
-      case 'check':
-        await checkServerStatus(user);
-        break;
       case 'start':
         await startServer(user);
         break;

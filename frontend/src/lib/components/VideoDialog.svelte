@@ -214,8 +214,6 @@ function buildPlaylist(): string[] {
 let playlist = $state<string[]>([]);
 let currentIndex = $state(0);
 let autoPlay = $state(true);
-/** Incremented each time the dialog opens to force DOM re-creation */
-let dialogKey = $state(0);
 
 // Load watched on mount
 $effect(() => {
@@ -254,7 +252,6 @@ $effect(() => {
   dialogEl?.showModal();
   playlist = buildPlaylist();
   currentIndex = 0;
-  dialogKey++;
   initAttempted = false;
 });
 
@@ -278,7 +275,7 @@ $effect(() => {
         width: '100%',
         height: 480,
         videoId: id,
-        playerVars: { autoplay: 1, controls: 1, rel: 0 },
+        playerVars: { autoplay: 1, controls: 0, rel: 0, modestbranding: 1, iv_load_policy: 3 },
         events: {
           onReady: (e: YT.PlayerEvent) => { e.target.playVideo(); },
           onStateChange: (e: YT.OnStateChangeEvent) => {
@@ -331,15 +328,11 @@ function nextVideo() {
 function onDialogClose() {
   open = false;
   currentIndex = -1;
-  // Fully destroy the YouTube player to avoid iframe artifacts on reopen
+  // Destroy the YouTube player to clean up the iframe
   if (player) {
     try { player.stopVideo(); } catch { /* noop */ }
     try { player.destroy(); } catch { /* noop */ }
     player = null;
-  }
-  // Also clear any leftover iframe in the container
-  if (playerEl) {
-    playerEl.innerHTML = '';
   }
 }
 </script>
@@ -351,9 +344,7 @@ function onDialogClose() {
     </form>
     <div class="relative">
       {#if open && currentIndex >= 0}
-        {#key dialogKey}
-          <div bind:this={playerEl} class="w-full" style="height: 480px"></div>
-        {/key}
+        <div bind:this={playerEl} class="w-full" style="height: 480px"></div>
         <div class="absolute bottom-3 left-1/2 -translate-x-1/2 z-10 flex items-center gap-3">
           <button onclick={nextVideo} class="btn btn-sm btn-ghost text-white/70 hover:text-white bg-black/40 rounded-full px-4">
             ⏭ Next

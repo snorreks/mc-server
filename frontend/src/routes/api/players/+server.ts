@@ -1,19 +1,12 @@
 import { json } from '@sveltejs/kit';
 import { rconCommand } from '$lib/server/rcon';
+import { recordPlayersOnline } from '$lib/server/firestore';
 import { logger } from '$logger';
+import { parsePlayerList } from '$shared/utils';
 import type { RequestHandler } from './$types';
 
 const MC_HEAD_BASE = 'https://mc-heads.net/avatar';
 const KNOWN_PLAYERS: Record<string, string> = {};
-
-function parseList(text: string): string[] {
-  const match = text.match(/There are \d+ of a max of \d+ players online[:\s]*(.*)/i);
-  if (!match?.[1]) return [];
-  return match[1]
-    .split(',')
-    .map((s) => s.trim())
-    .filter(Boolean);
-}
 
 export const GET: RequestHandler = async () => {
   logger.debug('players', 'fetching online players via RCON');
@@ -22,8 +15,15 @@ export const GET: RequestHandler = async () => {
     const output = await rconCommand('list');
     logger.debug('players', 'raw RCON output', { raw: output.slice(0, 300) });
 
-    const names = parseList(output);
+    const names = parsePlayerList(output);
     logger.debug('players', `parsed ${names.length} names`, { names });
+
+    // Record players in Firestore (best-effort, fire-and-forget)
+    if (names.length > 0) {
+      recordPlayersOnline(names).catch((e) =>
+        logger.error('players', 'recordPlayersOnline failed', { error: String(e) }),
+      );
+    }
 
     if (names.length === 0 && output.trim()) {
       // RCON returned something but we couldn't parse names from it

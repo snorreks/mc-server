@@ -1,7 +1,7 @@
 import { signOut as fbSignOut, onAuthStateChanged } from 'firebase/auth';
 import { doc, getDoc } from 'firebase/firestore';
 import { writable } from 'svelte/store';
-import { AG_ALLOWED_EMAILS_PATH, type AllowedEmailData } from '$config';
+import { AG_ALLOWED_EMAILS_PATH } from '$config';
 import { getFirebaseAuth, getFirebaseFirestore } from '$lib/client/firebase';
 import type { CurrentUserStatus } from '$lib/types';
 
@@ -19,8 +19,9 @@ async function checkIsAllowed(email: string): Promise<boolean> {
   try {
     const db = getFirebaseFirestore();
     const snap = await getDoc(doc(db, AG_ALLOWED_EMAILS_PATH));
-    const allowed = (snap.data() ?? {}) as AllowedEmailData;
-    const result = allowed[email] === true;
+    const allowed = (snap.data() ?? {}) as Record<string, boolean | { approved: boolean }>;
+    const entry = allowed[email];
+    const result = typeof entry === 'boolean' ? entry === true : entry?.approved === true;
     console.log('[auth] checkIsAllowed', { email, result, allowedKeys: Object.keys(allowed) });
     return result;
   } catch (e) {

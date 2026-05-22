@@ -38,3 +38,12 @@
 .animate-fade-in {
   animation: fade-in 0.3s ease-out;
 }
+
+/* Fix DaisyUI dropdown: hidden items must not be clickable */
+.dropdown .dropdown-content {
+  pointer-events: none;
+}
+.dropdown:focus-within .dropdown-content,
+.dropdown.dropdown-open .dropdown-content {
+  pointer-events: auto;
+}

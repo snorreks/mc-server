@@ -59,8 +59,9 @@ export async function verifySessionCookie(
         const docRef = firestoreInstance.doc(AG_ALLOWED_EMAILS_PATH);
         const docSnap = await docRef.get();
 
-        const allowed = docSnap.data() as Record<string, boolean> | undefined;
-        isActive = allowed?.[email] === true;
+        const allowed = docSnap.data() as Record<string, boolean | { approved: boolean }> | undefined;
+        const entry = allowed?.[email];
+        isActive = typeof entry === 'boolean' ? entry === true : entry?.approved === true;
         console.log(
           '[auth:server] verifySessionCookie — fallback isActive:',
           isActive,
@@ -85,7 +86,10 @@ export async function verifySessionCookie(
       isActive,
     };
   } catch (error) {
-    console.error('[auth:server] verifySessionCookie verification crash, purging token.', error);
+    console.error('[auth:server] verifySessionCookie — verification failed', {
+      error: error instanceof Error ? error.message : String(error),
+      cookiePreview: sessionCookie?.slice(0, 20) + '...',
+    });
     if (cleanup) {
       try {
         deleteCookie('__session', { cookies });

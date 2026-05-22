@@ -19,12 +19,8 @@ const lastOnline = $derived(data?.lastOnline ? toCalendar(data.lastOnline) : und
 
 function getNextShutdownTime(): string {
   const now = new Date();
-  const hours = now.getHours();
-  const next = Math.ceil((hours + 1) / 6) * 6;
-  const nextHour = next <= 23 ? next : 0;
-  const timeStr = nextHour.toString().padStart(2, '0') + ':00';
-  const isTomorrow = next > 23;
-  return isTomorrow ? `tomorrow ${timeStr}` : timeStr;
+  const next = new Date(now.getFullYear(), now.getMonth(), now.getDate(), now.getHours() + 1);
+  return next.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
 }
 
 async function copyIP() {
@@ -115,7 +111,7 @@ async function copyIP() {
                             {#if skipNextAutoShutdown}
                                 Skipping next shutdown
                             {:else}
-                                Every 6 hours ({getNextShutdownTime()})
+                                Every hour ({getNextShutdownTime()})
                             {/if}
                         </span>
                     </div>
@@ -140,11 +136,9 @@ async function copyIP() {
                 {/if}
             </div>
 
-            {#if serverIsOn}
-                <button onclick={() => (showPlayers = true)} class="btn btn-outline btn-sm flex-1 gap-1.5 font-medium">
-                    👥 Online Players
-                </button>
-            {/if}
+            <button onclick={() => (showPlayers = true)} class="btn btn-outline btn-sm flex-1 gap-1.5 font-medium">
+                👥 Players
+            </button>
 
             {#if hasMap && mapHref}
                 <a href={mapHref} target="_blank" rel="noopener noreferrer"
